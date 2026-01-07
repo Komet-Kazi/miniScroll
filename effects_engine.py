@@ -6,10 +6,12 @@ try:
 except ImportError:
     ic = lambda *a: a[0] if len(a) == 1 else a
 
-ic.configureOutput(
-    prefix='[effects_engine] ',
-    includeContext=True,
-)
+# Fallback incase ic is not available.
+if hasattr(ic, "configureOutput"):
+    ic.configureOutput(
+        prefix='[effects_engine] ',
+        includeContext=True,
+    )
 
 class BaseEffect:
     def step(self) -> list[tuple[int,int,float]]:
@@ -23,7 +25,7 @@ class BaseEffect:
         return False  # default: run forever
 
     def reset(self):
-        """Optional: reset effect to initial state"""
+        """Reset internal state. Effects should be reusable."""
         pass
 
 class LayeredEffect(BaseEffect):
@@ -87,8 +89,9 @@ class Sparkle(BaseEffect):
         return [(self.x, self.y, brightness)]
 
     def is_done(self):
-        """Return True when the sparkle cycle finishes (brightness == 0)."""
-        return self.step_count > self.max_steps
+        # """Return True when the sparkle cycle finishes (brightness == 0)."""
+        # return self.step_count > self.max_steps
+        return False
 
 import collections
 
@@ -347,12 +350,6 @@ class EffectRunner:
     """
     def __init__(self, effect: BaseEffect, fps: float = 20.0):
 
-        # Uncomment the below if your display is upside down
-        scrollphathd.rotate(degrees=180)
-
-        # Set max brightness
-        scrollphathd.set_brightness(0.8)
-
         self.effect = effect
         self.frame_delay = 1.0 / fps
 
@@ -392,39 +389,46 @@ class EffectRunner:
 if __name__ == '__main__':
 # Catches control-c and exits cleanly
     try:
-        ic.disable()
+        # Uncomment to turn off debugging
+        # ic.disable()
+
+        # Uncomment the below if your display is upside down
+        scrollphathd.rotate(degrees=180)
+
+        # Set max brightness
+        scrollphathd.set_brightness(0.8)
 
         # This Works so Well!
         layered = LayeredEffect(
             Comet(0, 0, dx=1, dy=2, tail_length=4, bounce=True),
             Comet(16, 0, dx=2, dy=1, tail_length=9, bounce=True))
         runner = EffectRunner(layered, fps=25)
-        runner.run()
+        runner.run(repeat=200)
 
-        # zigzag = ZigZagSweep(speed=1,trail_length=5,bounce=True)
+        zigzag = ZigZagSweep(speed=1,trail_length=5,bounce=True)
 
-        # runner = EffectRunner(zigzag, fps=25)
-        # runner.run()
+        runner = EffectRunner(zigzag, fps=25)
+        runner.run(repeat=400)
 
-        # scanner = ScannerSweep(horizontal=True,speed=1,trail_length=6,bounce=True)
+        scanner = ScannerSweep(horizontal=True,speed=1,trail_length=6,bounce=True)
 
-        # runner = EffectRunner(scanner, fps=20)
-        # runner.run()
+        runner = EffectRunner(scanner, fps=20)
+        runner.run(repeat=400)
 
 
-        # ripple = WaveRipple(8, 3, speed=0.7)
+        ripple = WaveRipple(8, 3, speed=0.7)
 
-        # runner = EffectRunner(ripple, fps=30)
-        # runner.run()
+        runner = EffectRunner(ripple, fps=30)
+        runner.run(repeat=200)
 
-        # sparkle = Sparkle(3, 4)
-        # comet = Comet(0, 0, dx=1, dy=1, tail_length=6)
+        sparkle = Sparkle(3, 4)
+        comet = Comet(0, 0, dx=1, dy=1, tail_length=6)
 
-        # runner = EffectRunner(sparkle)
-        # runner.run(repeat=100)  # run sparkle
+        runner = EffectRunner(sparkle)
+        runner.run(repeat=200)  # run sparkle
 
-        # runner = EffectRunner(comet)
-        # runner.run()
+        runner = EffectRunner(comet)
+        runner.run(repeat=200)
         pass
 
     except KeyboardInterrupt:
