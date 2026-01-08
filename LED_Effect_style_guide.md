@@ -16,26 +16,27 @@ An effect is a pure animation unit that:
 
     Has no knowledge of hardware, frame timing, or rendering
 
-    Effects describe *what should be visible*, not *how it is displayed.*
+Effects describe *what should be visible*, not *how it is displayed.*
 
 ## 2. Required Interface Contract
 
 All effects *must* subclass `BaseEffect`.
 
-    ```python
-
+```python
 class BaseEffect:
     def step(self) -> list[tuple[int, int, float]]
     def reset(self) -> None
     def is_done(self) -> bool
-    ```
+```
 
 ### 2.1 step() (REQUIRED)
 
 Purpose
+
     Advance the effect by one frame and return visible pixels.
 
 Rules
+
     One call = one frame
 
     Must be deterministic given internal state
@@ -44,11 +45,11 @@ Rules
 
     Empty list = “nothing visible this frame”
 
-Return Format
+*Return Format:*
 
-    ```python
+```python
 (x: int, y: int, brightness: float)
-    ```
+```
 
     `x`, `y` are *logical matrix coordinates*
 
@@ -59,9 +60,11 @@ Return Format
 ### 2.2 reset() (REQUIRED)
 
 Purpose
+
     Reinitialize internal state to a clean start.
 
 Rules
+
     Must be idempotent
 
     Must not allocate large persistent objects unnecessarily
@@ -73,9 +76,11 @@ Rules
 ### 2.3 is_done() (OPTIONAL)
 
 Purpose
+
     Signal whether the effect has completed.
 
 Rules
+
     Default behavior: return `False`
 
     Finite effects MUST return `True` eventually
@@ -87,17 +92,18 @@ Rules
 ### 3.1 Allowed Responsibilities
 
 The constructor may:
+
     Store configuration parameters
 
     Validate inputs
 
     Call `reset()`
 
-    ```python
+```python
 def __init__(self, speed=1.0):
     self.speed = speed
     self.reset()
-    ```
+```
 
 ### 3.2 Forbidden Responsibilities
 
@@ -112,8 +118,8 @@ def __init__(self, speed=1.0):
 
 Each effect should explicitly track:
 
-| *State Type* | *Examples*                |
-|------------------------------------------|
+| *State Type* | *Examples*|
+|-|-|
 | Spatial  | `x`, `y`, `radius`            |
 | Temporal | `step_count`, `time`, `phase` |
 | Memory   | `tail`, `history`, `buffer`   |
@@ -125,16 +131,16 @@ Every mutable attribute must be initialized in *reset()*.
 
 *Bad*
 
-    ```python
+```python
 self.pos += 1  # uninitialized
-    ```
+```
 
 *Good*
 
-    ```python
+```python
 def reset(self):
     self.pos = 0
-    ```
+```
 
 
 ## 5. Spatial Rules (Matrix Independence)
@@ -150,10 +156,12 @@ def reset(self):
     `y` increases downward
 
 Effects *may*:
+
     Use integer or float internal positions
     Round only at pixel emission time
 
 Effects must not:
+
     Cache matrix width/height permanently
     Assume fixed dimensions
 
