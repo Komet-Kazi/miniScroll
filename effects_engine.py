@@ -13,6 +13,10 @@ if hasattr(ic, "configureOutput"):
         includeContext=True,
     )
 
+###------------------------------------------------------------------------------###
+
+
+
 class BaseEffect:
     def step(self) -> list[tuple[int,int,float]]:
         """
@@ -29,20 +33,66 @@ class BaseEffect:
         pass
 
 class LayeredEffect(BaseEffect):
-    def __init__(self, *effects):
-        self.effects = effects
+    def __init__(self, *layers):
+        self.layers = layers
 
     def step(self):
-        pixels = {}
+        pixels:dict[tuple[int, int], float] = {}
 
-        for effect in self.effects:    
+        for effect, blend in self.layers:
+            if effect.is_done():
+                effect.reset()    
             for x, y, b in effect.step():
-                pixels[(x,y)] = max(pixels.get((x,y), 0), b)
+                key = (x, y)
+                existing = pixels.get(key, 0.0)
+                pixels[key] = blend.apply(existing, b)
         
         return [(x,y,b) for (x,y), b in pixels.items()]
 
+class BlendMode:
+    """Usage: alpha_blend = BlendMode(blend_alpha, alpha=0.35)"""
+    def __init__(self, func, **kwargs):
+        # Usage: alpha_blend = BlendMode(blend_alpha, alpha=0.35)
+        self.func = func
+        self.kwargs = kwargs
 
+    def apply(self, dst, src):
+        return self.func(dst, src, **self.kwargs)
+###-------------------------------------------------------------------------------###
+#Blend Functions
+def blend_max(dst: float, src: float) -> float:
+    """Take the brightest value."""
+    return max(dst, src)
+
+def blend_add(dst: float, src: float) -> float:
+    """Additive blending, clamped to 1.0."""
+    return min(1.0, dst + src)
+
+def blend_sub(dst: float, src: float) -> float:
+    """Subtractive blending, clamped to 1.0."""
+    return min(1.0, src - dst)
+
+def blend_alpha(dst: float, src: float, alpha: float = 0.5) -> float:
+    """Alpha blending."""
+    return dst * (1 - alpha) + src * alpha
+
+def blend_overwrite(dst: float, src: float) -> float:
+    """Source overwrites destination."""
+    return src
+
+# Presets
+NO_BLEND = BlendMode(None)
+BLEND_MAX = BlendMode(blend_max)
+BLEND_ADD = BlendMode(blend_add)
+BLEND_SUB = BlendMode(blend_sub)
+BLEND_OFF = BlendMode(blend_overwrite)
+BLEND_ALPHA_SOFT = BlendMode(blend_alpha, alpha=0.25)
+BLEND_ALPHA_HARD = BlendMode(blend_alpha, alpha=0.6)
+
+###-------------------------------------------------------------------------------###
 import math
+import collections
+import random
 from random import randint
 
 class Sparkle(BaseEffect):
@@ -93,8 +143,6 @@ class Sparkle(BaseEffect):
         # return self.step_count > self.max_steps
         return False
 
-import collections
-
 class Comet(BaseEffect):
     def __init__(self, x, y, dx=1, dy=0, tail_length=6, bounce=True):
         self.dx = dx
@@ -141,7 +189,8 @@ class Comet(BaseEffect):
         return pixels
 
     def is_done(self):
-        return self.distance > self.max_distance
+        # return self.distance > self.max_distance
+        return False
 
 class WaveRipple(BaseEffect):
     """
@@ -340,7 +389,7 @@ class ZigZagSweep(BaseEffect):
     def is_done(self):
         return self.done
 
-
+###-------------------------------------------------------------------------------###
 import time
 import scrollphathd
 
@@ -390,7 +439,7 @@ if __name__ == '__main__':
 # Catches control-c and exits cleanly
     try:
         # Uncomment to turn off debugging
-        # ic.disable()
+        ic.disable()
 
         # Uncomment the below if your display is upside down
         scrollphathd.rotate(degrees=180)
@@ -400,35 +449,42 @@ if __name__ == '__main__':
 
         # This Works so Well!
         layered = LayeredEffect(
-            Comet(0, 0, dx=1, dy=2, tail_length=4, bounce=True),
-            Comet(16, 0, dx=2, dy=1, tail_length=9, bounce=True))
+            (WaveRipple(8, 3, speed=0.7), BLEND_OFF),
+            (WaveRipple(3, 8, speed=0.7), BLEND_MAX),
+            (WaveRipple(5, 5, speed=0.7), BLEND_OFF))
         runner = EffectRunner(layered, fps=25)
         runner.run(repeat=200)
 
-        zigzag = ZigZagSweep(speed=1,trail_length=5,bounce=True)
+        # # This Works so Well!
+        # layered = LayeredEffect(
+        #     (Comet(0, 0, dx=1, dy=2, tail_length=4, bounce=True), BLEND_ALPHA_HARD),
+        #     (Comet(16, 0, dx=2, dy=1, tail_length=9, bounce=True), BLEND_ALPHA_HARD))
+        # runner = EffectRunner(layered, fps=25)
+        # runner.run(repeat=200)
+        # zigzag = ZigZagSweep(speed=1,trail_length=5,bounce=True)
 
-        runner = EffectRunner(zigzag, fps=25)
-        runner.run(repeat=400)
+        # runner = EffectRunner(zigzag, fps=25)
+        # runner.run(repeat=400)
 
-        scanner = ScannerSweep(horizontal=True,speed=1,trail_length=6,bounce=True)
+        # scanner = ScannerSweep(horizontal=True,speed=1,trail_length=6,bounce=True)
 
-        runner = EffectRunner(scanner, fps=20)
-        runner.run(repeat=400)
+        # runner = EffectRunner(scanner, fps=20)
+        # runner.run(repeat=400)
 
 
-        ripple = WaveRipple(8, 3, speed=0.7)
+        # ripple = WaveRipple(8, 3, speed=0.7)
 
-        runner = EffectRunner(ripple, fps=30)
-        runner.run(repeat=200)
+        # runner = EffectRunner(ripple, fps=30)
+        # runner.run(repeat=200)
 
-        sparkle = Sparkle(3, 4)
-        comet = Comet(0, 0, dx=1, dy=1, tail_length=6)
+        # sparkle = Sparkle(3, 4)
+        # comet = Comet(0, 0, dx=1, dy=1, tail_length=6)
 
-        runner = EffectRunner(sparkle)
-        runner.run(repeat=200)  # run sparkle
+        # runner = EffectRunner(sparkle)
+        # runner.run(repeat=200)  # run sparkle
 
-        runner = EffectRunner(comet)
-        runner.run(repeat=200)
+        # runner = EffectRunner(comet)
+        # runner.run(repeat=200)
         pass
 
     except KeyboardInterrupt:
