@@ -243,7 +243,7 @@ class WaveRipple(BaseEffect):
         where brightness is normalized between 0.0 and 1.0.
     """
 
-    def __init__(self, cx, cy, speed=0.5, max_radius=None):
+    def __init__(self, cx, cy, speed=0.5, max_radius:float | None=None):
         self.cx = cx
         self.cy = cy
         self.speed = speed
@@ -425,6 +425,44 @@ class ZigZagSweep(BaseEffect):
 
     def is_done(self):
         return self.done
+
+###------------------------------------------------------------------------###
+#Effect Class Template
+# Design Questions to Answer First
+
+# Before writing code:
+
+# Is it continuous or finite?
+
+# Is it spatial (position-based) or temporal (global)?
+
+# Does it need memory (trails, waves)?
+
+# Should it layer well with others?
+
+# Does it reset cleanly?
+
+class MyEffect(BaseEffect):
+    def __init__(self, params):
+        self.params = params
+        self.reset()
+
+    def reset(self):
+        self.state = ...
+        self.done = False
+
+    def step(self):
+        if self.done:
+            return []
+        pixels = []
+        # update state
+        # compute pixels
+
+        return pixels
+
+    def is_done(self):
+        return self.done
+
 
 ###-------------------------------------------------------------------------------###
 import time
