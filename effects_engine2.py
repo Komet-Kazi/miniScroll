@@ -42,7 +42,7 @@ def blend(dst: float, src: float, mode: BlendMode) -> float:
     if mode == BlendMode.MAX:
         return max(dst, src)
     if mode == BlendMode.ADD:
-        return clamp01(dst + src)
+        return dst + src
     if mode == BlendMode.ALPHA_SOFT:
         return dst * 0.75 + src * 0.25
     if mode == BlendMode.ALPHA_HARD:
@@ -603,12 +603,52 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
         )),
     ]
 
+    for name, effect in effects_to_demo:
+        print(f"Running demo: {name}")
+        effect.reset()
+        runner = EffectRunner(effect,fps=fps)
+        runner.run(frames=frames_per_demo)
+
+def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
+    """
+    Demonstrates all available effects and blending modes on Scroll pHAT HD.
+
+    This function sequentially runs:
+    - Sparkle
+    - Comet
+    - WaveRipple
+    - ScannerSweep
+    - ZigZagSweep
+    - LayeredEffect combining multiple effects with different blend modes
+
+    Args:
+        fps (float): Frames per second for display update speed.
+        frames_per_demo (int): Number of frames to run each effect.
+    """
+    # Configure display
+    scrollphathd.clear()
+
+    effects_to_bake= [
+        ("Sparkle", Sparkle(randint(0, scrollphathd.width-1), randint(0, scrollphathd.height-1))),
+        ("Comet", Comet(0, 0, dx=1, dy=1, tail_length=6, bounce=True)),
+        ("WaveRipple", WaveRipple(scrollphathd.width//2, scrollphathd.height//2, speed=0.7)),
+        ("ScannerSweep", ScannerSweep(horizontal=True, speed=1, trail_length=6, bounce=True)),
+        ("ZigZagSweep", ZigZagSweep(speed=1, trail_length=6, bounce=True)),
+        ("LayeredEffect", LayeredEffect(
+            Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
+            Layer(WaveRipple(3, 8, speed=0.7), BlendMode.MAX),
+            Layer(WaveRipple(5, 5, speed=0.7), BlendMode.ALPHA_SOFT),
+            Layer(Comet(0, 0, dx=1, dy=2, tail_length=4, bounce=True), BlendMode.ALPHA_HARD),
+            Layer(Comet(16, 0, dx=2, dy=1, tail_length=9, bounce=True), BlendMode.ALPHA_HARD)
+        )),
+    ]
+
     try:
-        for name, effect in effects_to_demo:
+        for name, effect in effects_to_bake:
             print(f"Running demo: {name}")
             effect.reset()
-            runner = EffectRunner(effect,fps=fps)
-            runner.run(frames=frames_per_demo)
+            bake_animation(name, effect, fps)
+
 
     except KeyboardInterrupt:
         print("Demo interrupted, clearing display...")
@@ -616,17 +656,24 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
         scrollphathd.clear()
         scrollphathd.show()
 
+def bake_animation(file_name: str, effect: BaseEffect, fps: float = 25, frames_to_save: int = 150):
+    recorder = AnimationRecorder(effect, fps=fps)
+    recorder.record(frames=frames_to_save)   # auto-stops when ripple is done
+    recorder.save(f"{file_name}.anim.gz")
 
-def bake_animation():
-    ripple = WaveRipple(8, 3, speed=0.6)
-    recorder = AnimationRecorder(ripple, fps=25)
-    recorder.record()   # auto-stops when ripple is done
-    recorder.save("ripple.anim.gz")
+def demo_play_baked_animation(fps: float = 25, frames_to_play: int = 150):
+    baked_animations = [
+        "Sparkle.anim.gz",
+        "Comet.anim.gz",
+        "ScannerSweep.anim.gz",
+        "LayeredEffect.anim.gz",
+        "WaveRipple.anim.gz",
+        "ZigZagSweep.anim.gz"]
+    for baked_anim in baked_animations:
+        anim = BakedAnimation(baked_anim, loop=False)
+        runner = EffectRunner(anim, fps=fps)
+        runner.run(frames=frames_to_play)
 
-def demo_play_baked_animation(fps: float = 25):
-    anim = BakedAnimation("ripple.anim.gz", loop=True)
-    runner = EffectRunner(anim, fps=fps)
-    runner.run()
 ###-------------------------------------------------------------------------------###
 
 if __name__ == '__main__':
@@ -641,7 +688,8 @@ if __name__ == '__main__':
         # Set max brightness
         #scrollphathd.set_brightness(0.8)
         #demo_all_effects()
-        bake_animation()
+        #bake_all_effects()
+        demo_play_baked_animation()
     
 
     except KeyboardInterrupt:
