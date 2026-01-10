@@ -426,6 +426,42 @@ class ZigZagSweep(BaseEffect):
     def is_done(self):
         return self.done
 
+class BakedAnimation(BaseEffect):
+    def __init__(self, filename: str, loop: bool = True):
+        self.filename = filename
+        self.loop = loop
+        self.reset()
+
+    def reset(self):
+        import json, gzip
+
+        with gzip.open(self.filename, "rt", encoding="utf-8") as f:
+            data = json.load(f)
+
+        self.frames = data["frames"]
+        self.index = 0
+        self.done = False
+
+    def step(self):
+        if self.done:
+            return []
+
+        frame = self.frames[self.index]
+        self.index += 1
+
+        if self.index >= len(self.frames):
+            if self.loop:
+                self.index = 0
+            else:
+                self.done = True
+
+        return frame
+
+    def is_done(self):
+        return self.done
+
+
+
 ###------------------------------------------------------------------------###
 #Effect Class Template
 # Design Questions to Answer First
@@ -465,6 +501,7 @@ class MyEffect(BaseEffect):
 
 
 ###-------------------------------------------------------------------------------###
+#run an effect and display on the matrix in realtime
 import time
 import scrollphathd
 
@@ -486,7 +523,51 @@ class EffectRunner:
             time.sleep(self.delay)
             count += 1
 
+###-------------------------------------------------------------------------------###
+# AnimationRecorder a replacement for the render Class that saves frames to a file to be read from later.
 
+import json
+import gzip
+
+class AnimationRecorder:
+    def __init__(self, effect: BaseEffect, fps: float = 25):
+        self.effect = effect
+        self.fps = fps
+        self.frames: list[list[tuple[int, int, float]]] = []
+
+    def record(self, frames: int | None = None):
+        """
+        Record frames from an effect.
+        If frames is None, record until effect.is_done().
+        """
+        self.effect.reset()
+        count = 0
+
+        while frames is None or count < frames:
+            frame = self.effect.step()
+            self.frames.append(frame)
+
+            count += 1
+            if frames is None and self.effect.is_done():
+                break
+
+    def save(self, filename: str):
+        data = {
+            "version": 1,
+            "width": scrollphathd.width,
+            "height": scrollphathd.height,
+            "fps": self.fps,
+            "frame_count": len(self.frames),
+            "frames": self.frames,
+        }
+
+        with gzip.open(filename, "wt", encoding="utf-8") as f:
+            json.dump(data, f)
+
+        print(f"Saved animation: {filename} ({len(self.frames)} frames)")
+
+###-------------------------------------------------------------------------------###
+# Examples
 def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
     """
     Demonstrates all available effects and blending modes on Scroll pHAT HD.
@@ -535,6 +616,19 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
         scrollphathd.clear()
         scrollphathd.show()
 
+
+def bake_animation():
+    ripple = WaveRipple(8, 3, speed=0.6)
+    recorder = AnimationRecorder(ripple, fps=25)
+    recorder.record()   # auto-stops when ripple is done
+    recorder.save("ripple.anim.gz")
+
+def demo_play_baked_animation(fps: float = 25):
+    anim = BakedAnimation("ripple.anim.gz", loop=True)
+    runner = EffectRunner(anim, fps=fps)
+    runner.run()
+###-------------------------------------------------------------------------------###
+
 if __name__ == '__main__':
 # Catches control-c and exits cleanly
     try:
@@ -542,11 +636,13 @@ if __name__ == '__main__':
         ic.disable()
 
         # Uncomment the below if your display is upside down
-        scrollphathd.rotate(degrees=180)
+        #scrollphathd.rotate(degrees=180)
 
         # Set max brightness
-        scrollphathd.set_brightness(0.8)
-        demo_all_effects()
+        #scrollphathd.set_brightness(0.8)
+        #demo_all_effects()
+        bake_animation()
+    
 
     except KeyboardInterrupt:
         scrollphathd.clear()
