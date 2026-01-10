@@ -524,7 +524,7 @@ class EffectRunner:
             count += 1
 
 ###-------------------------------------------------------------------------------###
-# AnimationRecorder a replacement for the render Class that saves frames to a file to be read from later.
+# AnimationRecorder a replacement for the EffectRunner Class that saves frames to a file to be read from later.
 
 import json
 import gzip
