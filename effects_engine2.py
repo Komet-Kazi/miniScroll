@@ -497,6 +497,84 @@ class PulseFade(BaseEffect):
     def is_done(self):
         return self.done
 
+class SpiralSweep(BaseEffect):
+    """
+    Spiral sweep expanding from center.
+    """
+
+    def __init__(self, cx, cy, speed=0.2):
+        self.cx = cx
+        self.cy = cy
+        self.speed = speed
+        self.reset()
+
+    def reset(self):
+        self.angle = 0.0
+        self.radius = 0.0
+        self.done = False
+        self.max_radius = math.hypot(scrollphathd.width, scrollphathd.height)
+
+    def step(self):
+        if self.done:
+            return []
+
+        x = int(round(self.cx + math.cos(self.angle) * self.radius))
+        y = int(round(self.cy + math.sin(self.angle) * self.radius))
+
+        self.angle += self.speed
+        self.radius += self.speed * 0.1
+
+        if self.radius > self.max_radius:
+            self.done = True
+
+        if 0 <= x < scrollphathd.width and 0 <= y < scrollphathd.height:
+            return [(x, y, 1.0)]
+
+        return []
+
+    def is_done(self):
+        return self.done
+
+class ExpandingBox(BaseEffect):
+    """
+    Expanding rectangular outline from a center.
+    """
+
+    def __init__(self, cx, cy, speed=1):
+        self.cx = cx
+        self.cy = cy
+        self.speed = speed
+        self.reset()
+
+    def reset(self):
+        self.radius = 0
+        self.done = False
+        self.max_radius = max(scrollphathd.width, scrollphathd.height)
+
+    def step(self):
+        if self.done:
+            return []
+
+        pixels = []
+        r = self.radius
+
+        for x in range(scrollphathd.width):
+            for y in range(scrollphathd.height):
+                if (
+                    abs(x - self.cx) == r and abs(y - self.cy) <= r or
+                    abs(y - self.cy) == r and abs(x - self.cx) <= r
+                ):
+                    pixels.append((x, y, 1.0))
+
+        self.radius += self.speed
+
+        if self.radius > self.max_radius:
+            self.done = True
+
+        return pixels
+
+    def is_done(self):
+        return self.done
 ###------------------------------------------------------------------------###
 #Effect Class Template
 # Design Questions to Answer First
@@ -635,6 +713,8 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
     scrollphathd.clear()
 
     effects_to_demo = [
+        ("ExpandingBox", ExpandingBox(cx=8, cy=3,speed=1)),
+        ("SpiralSweep", SpiralSweep(cx=8, cy=3, speed=1)),
         ("Sparkle", Sparkle(randint(0, scrollphathd.width-1),
                             randint(0, scrollphathd.height-1))),
         ("Comet", Comet(0, 0, dx=1, dy=1, tail_length=6, bounce=True)),
@@ -742,9 +822,9 @@ if __name__ == '__main__':
         # runner = EffectRunner(pulse_fade,fps=25)
         # runner.run(frames=150)
 
-        #demo_all_effects()
+        demo_all_effects()
         #bake_all_effects()
-        demo_play_baked_animation()
+        #demo_play_baked_animation()
     
 
     except KeyboardInterrupt:
