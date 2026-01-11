@@ -460,7 +460,42 @@ class BakedAnimation(BaseEffect):
     def is_done(self):
         return self.done
 
+class PulseFade(BaseEffect):
+    """
+    Global brightness pulse across the entire display.
+    """
 
+    def __init__(self, speed=0.05, repeat=True):
+        self.speed = speed
+        self.repeat = repeat
+        self.reset()
+
+    def reset(self):
+        self.phase = 0.0
+        self.done = False
+
+    def step(self):
+        if self.done:
+            return []
+
+        brightness = (math.sin(self.phase) + 1.0) / 2.0
+        self.phase += self.speed
+
+        if self.phase >= math.pi * 2:
+            if self.repeat:
+                self.phase = 0.0
+            else:
+                self.done = True
+
+        pixels = []
+        for x in range(scrollphathd.width):
+            for y in range(scrollphathd.height):
+                pixels.append((x, y, brightness))
+
+        return pixels
+
+    def is_done(self):
+        return self.done
 
 ###------------------------------------------------------------------------###
 #Effect Class Template
@@ -594,6 +629,7 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
         ("WaveRipple", WaveRipple(scrollphathd.width//2, scrollphathd.height//2, speed=0.7)),
         ("ScannerSweep", ScannerSweep(horizontal=True, speed=1, trail_length=6, bounce=True)),
         ("ZigZagSweep", ZigZagSweep(speed=1, trail_length=6, bounce=True)),
+        ("PulseFade", PulseFade(speed=.05, repeat=True)),
         ("LayeredEffect", LayeredEffect(
             Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
             Layer(WaveRipple(3, 8, speed=0.7), BlendMode.MAX),
@@ -634,6 +670,7 @@ def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
         ("WaveRipple", WaveRipple(scrollphathd.width//2, scrollphathd.height//2, speed=0.7)),
         ("ScannerSweep", ScannerSweep(horizontal=True, speed=1, trail_length=6, bounce=True)),
         ("ZigZagSweep", ZigZagSweep(speed=1, trail_length=6, bounce=True)),
+        ("PulseFade", PulseFade(speed=.05, repeat=True)),
         ("LayeredEffect", LayeredEffect(
             Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
             Layer(WaveRipple(3, 8, speed=0.7), BlendMode.MAX),
@@ -683,13 +720,17 @@ if __name__ == '__main__':
         ic.disable()
 
         # Uncomment the below if your display is upside down
-        #scrollphathd.rotate(degrees=180)
+        scrollphathd.rotate(degrees=180)
 
+        pulse_fade = PulseFade(speed=.05, repeat=True)
+        pulse_fade.reset()
+        runner = EffectRunner(pulse_fade,fps=25)
+        runner.run(frames=150)
         # Set max brightness
         #scrollphathd.set_brightness(0.8)
         #demo_all_effects()
         #bake_all_effects()
-        demo_play_baked_animation()
+        #demo_play_baked_animation()
     
 
     except KeyboardInterrupt:
