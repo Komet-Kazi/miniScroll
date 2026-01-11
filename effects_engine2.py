@@ -541,18 +541,30 @@ import time
 import scrollphathd
 
 class EffectRunner:
-    def __init__(self, effect: BaseEffect, fps: float = 20):
+    def __init__(self, effect: BaseEffect, fps: float = 20, invert: bool = False):
         self.effect = effect
         self.delay = 1.0 / fps
+        self.invert = invert
+
+    def apply_transformation(self, b:float) -> float:
+        if self.invert:
+            return 1.0 - b
+        return b
 
     def run(self, frames: int | None = None):
         count = 0
 
         while frames is None or count < frames:
+            frame_pixels = {(x, y): b for x, y, b in self.effect.step()}
+
             scrollphathd.clear()
 
-            for x, y, b in self.effect.step():
-                scrollphathd.set_pixel(x, y, clamp01(abs(b)))
+            for x in range(scrollphathd.width):
+                for y in range(scrollphathd.height):
+                    b = frame_pixels.get((x, y), 0.0)
+                    b = clamp01(abs(b))
+                    b = self.apply_transformation(b)
+                    scrollphathd.set_pixel(x, y, b)
 
             scrollphathd.show()
             time.sleep(self.delay)
@@ -642,7 +654,7 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
     for name, effect in effects_to_demo:
         print(f"Running demo: {name}")
         effect.reset()
-        runner = EffectRunner(effect,fps=fps)
+        runner = EffectRunner(effect, fps=fps)
         runner.run(frames=frames_per_demo)
 
 def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
@@ -708,7 +720,7 @@ def demo_play_baked_animation(fps: float = 25, frames_to_play: int = 150):
         "ZigZagSweep.anim.gz"]
     for baked_anim in baked_animations:
         anim = BakedAnimation(baked_anim, loop=False)
-        runner = EffectRunner(anim, fps=fps)
+        runner = EffectRunner(anim, fps=fps,invert=True)
         runner.run(frames=frames_to_play)
 
 ###-------------------------------------------------------------------------------###
@@ -719,18 +731,20 @@ if __name__ == '__main__':
         # Uncomment to turn off debugging
         ic.disable()
 
+        # Set max brightness
+        scrollphathd.set_brightness(0.8)
+
         # Uncomment the below if your display is upside down
         scrollphathd.rotate(degrees=180)
 
-        pulse_fade = PulseFade(speed=.05, repeat=True)
-        pulse_fade.reset()
-        runner = EffectRunner(pulse_fade,fps=25)
-        runner.run(frames=150)
-        # Set max brightness
-        #scrollphathd.set_brightness(0.8)
+        # pulse_fade = PulseFade(speed=.05, repeat=True)
+        # pulse_fade.reset()
+        # runner = EffectRunner(pulse_fade,fps=25)
+        # runner.run(frames=150)
+
         #demo_all_effects()
         #bake_all_effects()
-        #demo_play_baked_animation()
+        demo_play_baked_animation()
     
 
     except KeyboardInterrupt:
