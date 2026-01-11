@@ -640,8 +640,8 @@ class EffectRunner:
             for x in range(scrollphathd.width):
                 for y in range(scrollphathd.height):
                     b = frame_pixels.get((x, y), 0.0)
-                    b = clamp01(abs(b))
                     b = self.apply_transformation(b)
+                    b = clamp01(b)
                     scrollphathd.set_pixel(x, y, b)
 
             scrollphathd.show()
@@ -734,7 +734,7 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
     for name, effect in effects_to_demo:
         print(f"Running demo: {name}")
         effect.reset()
-        runner = EffectRunner(effect, fps=fps)
+        runner = EffectRunner(effect, fps=fps, invert=True)
         runner.run(frames=frames_per_demo)
 
 def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
