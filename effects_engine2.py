@@ -72,6 +72,19 @@ def rasterize_string(
 from enum import Enum
 
 class BlendMode(Enum):
+    """
+    Enumeration of pixel blending strategies used when combining layers.
+
+    Each mode defines how a source pixel's brightness is combined with
+    an existing destination pixel's brightness.
+
+    Modes:
+        MAX: Take the maximum brightness.
+        ADD: Add brightness values together.
+        ALPHA_SOFT: Soft alpha blend favoring destination.
+        ALPHA_HARD: Stronger alpha blend favoring source.
+        OVERWRITE: Replace destination with source.
+    """
     MAX = "max"
     ADD = "add"
     ALPHA_SOFT = "alpha_soft"
@@ -91,24 +104,58 @@ def blend(dst: float, src: float, mode: BlendMode) -> float:
 
 
 class BaseEffect:
+    """
+    Abstract base class for all visual effects.
+
+    Effects are stateful objects that generate pixels frame-by-frame.
+    Subclasses must implement `step()` and may optionally override
+    `reset()` and `is_done()`.
+
+    Contract:
+        - step() returns a list of (x, y, brightness) tuples
+        - reset() restores the effect to its initial state
+        - is_done() indicates whether the effect has finished
+    """
     def step(self) -> list[tuple[int, int, float]]:
         """Return (x, y, brightness) pixels for this frame."""
         raise NotImplementedError
 
     def reset(self):
+        """Reset internal state so the effect can be replayed."""
         pass
 
     def is_done(self) -> bool:
+        """Return True if the effect has completed execution."""
         return False
 
 ###-------------------------------------------------------------------------------###
 
 class Layer:
+    """
+    Container pairing an effect with a blend mode.
+
+    Layers are used by LayeredEffect to combine multiple effects into
+    a single composite output using the specified blend strategy.
+
+    Args:
+        effect (BaseEffect): The effect to render.
+        blend (BlendMode): How this effect blends with others.
+    """
     def __init__(self, effect: BaseEffect, blend: BlendMode = BlendMode.MAX):
         self.effect = effect
         self.blend = blend
 
 class LayeredEffect(BaseEffect):
+    """
+    Composite effect that combines multiple effects using blend modes.
+
+    Each layer is rendered independently, and overlapping pixels are
+    merged using the layer's blend mode. Finished effects are
+    automatically reset, making this suitable for looping visuals.
+
+    Args:
+        *layers (Layer): One or more Layer objects.
+    """
     def __init__(self, *layers: Layer):
         self.layers = layers
 
@@ -520,6 +567,16 @@ class ZigZagSweep(BaseEffect):
         return self.done
 
 class BakedAnimation(BaseEffect):
+    """
+    Plays back a pre-recorded animation from a compressed file.
+
+    Frames are loaded from a gzip-compressed JSON file produced by
+    AnimationRecorder. Can loop or play once.
+
+    Args:
+        filename (str): Path to .anim.gz file.
+        loop (bool): Whether to restart when finished.
+    """
     def __init__(self, filename: str, loop: bool = True):
         self.filename = filename
         self.loop = loop
@@ -629,10 +686,22 @@ class SpiralSweep(BaseEffect):
     def is_done(self):
         return self.done
 
+
+###------------------------------------------------------------------------###
+# Pac Man, Pellet, and Ghost animation and scene logic
 class PacMan(BaseEffect):
     """
-    Filled Pac-Man with a clean animated mouth.
-    Designed to be stable on low-resolution LED matrices.
+    Animated Pac-Man character with a smooth chomping mouth.
+
+    Uses subpixel movement for smooth motion while remaining stable
+    on low-resolution LED matrices. Supports wrapping or finite travel.
+
+    Args:
+        x, y: Starting position.
+        x_speed, dy: Movement per frame.
+        radius: Body radius in pixels.
+        chomp_speed: Mouth animation speed.
+        wrap: Whether to wrap around display edges.
     """
 
     def __init__(
@@ -729,6 +798,12 @@ class PacMan(BaseEffect):
         return self.done
 
 class PelletRow(BaseEffect):
+    """
+    Row of evenly spaced pellets that can be consumed.
+
+    Pellets are removed when `eat(x)` is called, typically by a
+    Pac-Man style effect.
+    """
     def __init__(self, y):
         self.y = y
         self.reset()
@@ -748,12 +823,11 @@ class PelletRow(BaseEffect):
 
 class Ghost(BaseEffect):
     """
-    Classic Pac-Man style ghost:
-    - Rounded head
-    - Rectangular body
-    - Animated bumpy bottom
-    """
+    Pac-Man style ghost with animated feet.
 
+    Moves horizontally across the display and completes once fully
+    off-screen.
+    """
     def __init__(self, x, y, x_speed=0.15):
         self.start_x = x
         self.y = y
@@ -818,36 +892,51 @@ class Ghost(BaseEffect):
         return self.done
 
 class PacManScene(BaseEffect):
-        def __init__(self, pellets, pacman, ghost) -> None:
-            self.pellets = pellets
-            self.pacman = pacman
-            self.ghost = ghost
-            self.reset()
+    """
+    Coordinated scene combining Pac-Man, pellets, and a ghost.
 
-        def reset(self):
-            self.pellets.reset()
-            self.pacman.reset()
-            self.ghost.reset()
-            self.done = False
+    Handles interaction logic such as pellet consumption and scene
+    termination when Pac-Man exits the display.
+    """
 
-        def step(self):
-            pacman_pixels = self.pacman.step()
-            self.pellets.eat(self.pacman.x)
+    def __init__(self, pellets, pacman, ghost) -> None:
+        self.pellets = pellets
+        self.pacman = pacman
+        self.ghost = ghost
+        self.reset()
 
-            pixels = []
-            pixels += self.pellets.step()
-            pixels += self.ghost.step()
-            pixels += pacman_pixels
+    def reset(self):
+        self.pellets.reset()
+        self.pacman.reset()
+        self.ghost.reset()
+        self.done = False
 
-            if self.pacman.x > scrollphathd.width + 4:
-                self.done = True
+    def step(self):
+        pacman_pixels = self.pacman.step()
+        self.pellets.eat(self.pacman.x)
 
-            return pixels
+        pixels = []
+        pixels += self.pellets.step()
+        pixels += self.ghost.step()
+        pixels += pacman_pixels
 
-        def is_done(self):
-            return self.done
-        
+        if self.pacman.x > scrollphathd.width + 4:
+            self.done = True
+
+        return pixels
+
+    def is_done(self):
+        return self.done
+
+###------------------------------------------------------------------------###
+# Text Reveal Animation and scene logic
 class RevealText(BaseEffect):
+    """
+    Stateful text mask that reveals pixels over time.
+
+    Holds a static set of text pixels and reveals them incrementally
+    when `reveal_at()` is called.
+    """
     def __init__(self, text_pixels: dict[tuple[int, int], float]):
         self.text_pixels = text_pixels
         self.reset()
@@ -871,6 +960,12 @@ class RevealText(BaseEffect):
         return self.done
 
 class RevealTextScene(BaseEffect):
+    """
+    Scene that reveals text using another effect as a mask.
+
+    A revealer effect (scanner, comet, etc.) determines which text
+    pixels become visible as it passes over them.
+    """
     def __init__(self, revealer: BaseEffect, text: RevealText, reveal_radius=0):
         self.revealer = revealer
         self.text = text
@@ -917,6 +1012,12 @@ class RevealTextScene(BaseEffect):
 # Does it reset cleanly?
 
 class MyEffect(BaseEffect):
+    """
+    Template for creating new effects.
+
+    Intended as a starting point when designing new visual effects.
+    Includes the standard lifecycle methods and design questions.
+    """
     def __init__(self, params):
         self.params = params
         self.reset()
@@ -945,6 +1046,17 @@ import scrollphathd
 
 
 class EffectRunner:
+    """
+    Drives an effect in real-time and renders it to the LED matrix.
+
+    Handles frame timing, brightness normalization, optional inversion,
+    and pushing pixel data to the Scroll pHAT HD hardware.
+
+    Args:
+        effect (BaseEffect): Effect to run.
+        fps (float): Frames per second.
+        invert (bool): Whether to invert brightness values.
+    """
     def __init__(self, effect: BaseEffect, fps: float = 20, invert: bool = False):
         self.effect = effect
         self.delay = 1.0 / fps
@@ -981,6 +1093,16 @@ import json
 import gzip
 
 class AnimationRecorder:
+    """
+    Records frames from an effect and saves them to disk.
+
+    Intended for pre-baking animations so they can be replayed later
+    without recomputing effect logic.
+
+    Args:
+        effect (BaseEffect): Effect to record.
+        fps (float): Playback frame rate metadata.
+    """
     def __init__(self, effect: BaseEffect, fps: float = 25):
         self.effect = effect
         self.fps = fps
