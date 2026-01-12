@@ -47,6 +47,7 @@ def capture_pixels():
     finally:
         scrollphathd.set_pixel = original_set_pixel
     
+from scrollphathd.fonts import font3x5
 def rasterize_string(
     text,
     x=0,
@@ -63,6 +64,7 @@ def rasterize_string(
             text,
             x=x,
             y=y,
+            font=font3x5,
             brightness=brightness,
             **kwargs
         )
