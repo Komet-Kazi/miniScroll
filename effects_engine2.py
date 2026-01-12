@@ -701,7 +701,7 @@ class PelletRow(BaseEffect):
         self.pellets.discard(int(x))
 
     def step(self):
-        return [(x, self.y, 0.3) for x in self.pellets]
+        return [(x, self.y, 0.5) for x in self.pellets]
 
     def is_done(self):
         return self.done
@@ -777,7 +777,7 @@ class Ghost(BaseEffect):
     def is_done(self):
         return self.done
 
-class Scene(BaseEffect):
+class PacManScene(BaseEffect):
         def __init__(self, pellets, pacman, ghost) -> None:
             self.pellets = pellets
             self.pacman = pacman
@@ -950,6 +950,14 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
     scrollphathd.clear()
 
     effects_to_demo = [
+        ("PacManScene", PacManScene(
+            PelletRow(y=3), 
+            PacMan(0, 3, x_speed=0.25, wrap=False), 
+            Ghost(-7, 2))),
+        ("Layered_PacMan",LayeredEffect(
+            Layer(PelletRow(y=3),BlendMode.OVERWRITE),
+            Layer(Ghost(-6, 1, x_speed=0.2), BlendMode.MAX),
+            Layer(PacMan(0, 3, x_speed=0.25), BlendMode.OVERWRITE))),
         ("ExpandingBox", ExpandingBox(cx=8, cy=3,speed=1)),
         ("SpiralSweep", SpiralSweep(cx=8, cy=3, speed=1)),
         ("Sparkle", Sparkle(randint(0, scrollphathd.width-1),
@@ -994,6 +1002,14 @@ def bake_all_effects(fps: float = 25, frames_to_save: int = 150):
     scrollphathd.clear()
 
     effects_to_bake= [
+        ("PacManScene", PacManScene(
+            PelletRow(y=3), 
+            PacMan(0, 3, x_speed=0.25, wrap=False), 
+            Ghost(-7, 2))),
+        ("Layered_PacMan",LayeredEffect(
+            Layer(PelletRow(y=3),BlendMode.OVERWRITE),
+            Layer(Ghost(-6, 1, x_speed=0.2), BlendMode.MAX),
+            Layer(PacMan(0, 3, x_speed=0.25), BlendMode.OVERWRITE))),
         ("ExpandingBox", ExpandingBox(cx=8, cy=3,speed=1)),
         ("SpiralSweep", SpiralSweep(cx=8, cy=3, speed=1)),
         ("Sparkle", Sparkle(randint(0, scrollphathd.width-1), randint(0, scrollphathd.height-1))),
@@ -1031,6 +1047,8 @@ def bake_animation(file_name: str, effect: BaseEffect, fps: float = 25, frames_t
 
 def demo_play_baked_animation(fps: float = 25, frames_to_play: int = 150):
     baked_animations = [
+        "PacManScene.anim.gz",
+        "Layered_PacMan.anim.gz",
         "ExpandingBox.anim.gz",
         "SpiralSweep.anim.gz",
         "PulseFade.anim.gz",
@@ -1054,7 +1072,7 @@ if __name__ == '__main__':
         ic.disable()
 
         # Set max brightness
-        scrollphathd.set_brightness(0.4)
+        scrollphathd.set_brightness(0.2)
 
         # Uncomment the below if your display is upside down
         scrollphathd.rotate(degrees=180)
@@ -1078,16 +1096,16 @@ if __name__ == '__main__':
         # runner.run(frames=150)
 
 
-        layered_pacman = LayeredEffect(
-            Layer(PelletRow(y=3),BlendMode.OVERWRITE),
-            Layer(Ghost(-6, 1, x_speed=0.2), BlendMode.MAX),
-            Layer(PacMan(0, 3, x_speed=0.25), BlendMode.OVERWRITE))
-        layered_pacman.reset()
-        runner = EffectRunner(layered_pacman, fps=25, invert=False)
-        runner.run(frames=150)
-        #demo_all_effects()
-        #bake_all_effects()
-        #demo_play_baked_animation()
+        # layered_pacman = LayeredEffect(
+        #     Layer(PelletRow(y=3),BlendMode.OVERWRITE),
+        #     Layer(Ghost(-6, 1, x_speed=0.2), BlendMode.MAX),
+        #     Layer(PacMan(0, 3, x_speed=0.25), BlendMode.OVERWRITE))
+        # layered_pacman.reset()
+        # runner = EffectRunner(layered_pacman, fps=25, invert=False)
+        # runner.run(frames=150)
+        demo_all_effects()
+        # bake_all_effects()
+        # demo_play_baked_animation()
     
 
     except KeyboardInterrupt:
