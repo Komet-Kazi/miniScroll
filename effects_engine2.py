@@ -599,15 +599,15 @@ class PacMan(BaseEffect):
         self,
         x,
         y,
-        dx=0.25,
+        x_speed=0.25,
         dy=0.0,
         radius=3.0,
-        chomp_speed=0.25,
+        chomp_speed=1.0,
         wrap=True,
     ):
         self.start_x = float(x)
         self.start_y = float(y)
-        self.dx = dx
+        self.dx = x_speed
         self.dy = dy
         self.radius = radius
         self.chomp_speed = chomp_speed
@@ -677,12 +677,136 @@ class PacMan(BaseEffect):
                 if abs(rel) < mouth_angle:
                     continue
 
+                b = 1.0
+                if dist > self.radius - 0.6:
+                    b = clamp01(self.radius - dist + 0.6)
+                
                 pixels.append((ix, iy, 1.0))
 
         return pixels
 
     def is_done(self):
         return self.done
+
+class PelletRow(BaseEffect):
+    def __init__(self, y):
+        self.y = y
+        self.reset()
+
+    def reset(self):
+        self.pellets = {x for x in range(0,scrollphathd.width,3)}
+        self.done = False
+
+    def eat(self, x):
+        self.pellets.discard(int(x))
+
+    def step(self):
+        return [(x, self.y, 0.3) for x in self.pellets]
+
+    def is_done(self):
+        return self.done
+
+class Ghost(BaseEffect):
+    """
+    Classic Pac-Man style ghost:
+    - Rounded head
+    - Rectangular body
+    - Animated bumpy bottom
+    """
+
+    def __init__(self, x, y, x_speed=0.15):
+        self.start_x = x
+        self.y = y
+        self.x_speed = x_speed
+        self.reset()
+
+    def reset(self):
+        self.x = self.start_x
+        self.phase = 0
+        self.done = False
+
+    def step(self):
+        self.x += self.x_speed
+        self.phase += 1
+
+        if self.x >= scrollphathd.width + 4:
+            self.done = True
+            return []
+
+        pixels = []
+        w, h = scrollphathd.width, scrollphathd.height
+
+        cx = int(round(self.x))
+        cy = int(round(self.y))
+
+        # --- Head (semi-circle) ---
+        head_radius = 2
+
+        for dx in range(-head_radius, head_radius + 1):
+            for dy in range(-head_radius, 1):
+                if dx * dx + dy * dy <= head_radius * head_radius:
+                    px = cx + dx
+                    py = cy + dy
+                    if 0 <= px < w and 0 <= py < h:
+                        pixels.append((px, py, 0.6))
+
+        # --- Body ---
+        body_height = 3
+        body_width = 2
+
+        for dx in range(-body_width, body_width + 1):
+            for dy in range(1, body_height + 1):
+                px = cx + dx
+                py = cy + dy
+                if 0 <= px < w and 0 <= py < h:
+                    pixels.append((px, py, 0.6))
+
+        # --- Bumpy bottom (animated) ---
+        bump_y = cy + body_height + 1
+        bump_phase = self.phase % 2
+
+        for i, dx in enumerate([-2, 0, 2]):
+            if (i + bump_phase) % 2 == 0:
+                px = cx + dx
+                py = bump_y
+                if 0 <= px < w and 0 <= py < h:
+                    pixels.append((px, py, 0.6))
+
+        return pixels
+
+    def is_done(self):
+        return self.done
+
+class Scene(BaseEffect):
+        def __init__(self, pellets, pacman, ghost) -> None:
+            self.pellets = pellets
+            self.pacman = pacman
+            self.ghost = ghost
+            self.reset()
+
+        def reset(self):
+            self.pellets.reset()
+            self.pacman.reset()
+            self.ghost.reset()
+            self.done = False
+
+        def step(self):
+            pacman_pixels = self.pacman.step()
+            self.pellets.eat(self.pacman.x)
+
+            pixels = []
+            pixels += self.pellets.step()
+            pixels += self.ghost.step()
+            pixels += pacman_pixels
+
+            if self.pacman.x > scrollphathd.width + 4:
+                self.done = True
+
+            return pixels
+
+        def is_done(self):
+            return self.done
+        
 
 
 ###------------------------------------------------------------------------###
@@ -850,7 +974,7 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
         runner = EffectRunner(effect, fps=fps, invert=False)
         runner.run(frames=frames_per_demo)
 
-def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
+def bake_all_effects(fps: float = 25, frames_to_save: int = 150):
     """
     Demonstrates all available effects and blending modes on Scroll pHAT HD.
 
@@ -891,7 +1015,7 @@ def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
         for name, effect in effects_to_bake:
             print(f"Baking Effect: {name}")
             effect.reset()
-            bake_animation(name, effect, fps)
+            bake_animation(name, effect, fps, frames_to_save=frames_to_save)
 
 
     except KeyboardInterrupt:
@@ -930,16 +1054,37 @@ if __name__ == '__main__':
         ic.disable()
 
         # Set max brightness
-        scrollphathd.set_brightness(0.8)
+        scrollphathd.set_brightness(0.4)
 
         # Uncomment the below if your display is upside down
         scrollphathd.rotate(degrees=180)
 
-        pac_man = PacMan(x=0, y=3)
-        pac_man.reset()
-        runner = EffectRunner(pac_man,fps=25)
-        runner.run(frames=150)
+       
+        # ghost = Ghost(x=0, y=2)
+        # ghost.reset()
+        # runner = EffectRunner(ghost,fps=25, invert=False)
+        # runner.run(frames=150)
 
+
+        # pellet_row = PelletRow(y=3)
+        # pellet_row.reset()
+        # runner = EffectRunner(pellet_row,fps=25, invert=False)
+        # runner.run(frames=150)
+
+
+        # pac_man = PacMan(x=0, y=3, chomp_speed=1)
+        # pac_man.reset()
+        # runner = EffectRunner(pac_man,fps=25, invert=False)
+        # runner.run(frames=150)
+
+
+        layered_pacman = LayeredEffect(
+            Layer(PelletRow(y=3),BlendMode.OVERWRITE),
+            Layer(Ghost(-6, 1, x_speed=0.2), BlendMode.MAX),
+            Layer(PacMan(0, 3, x_speed=0.25), BlendMode.OVERWRITE))
+        layered_pacman.reset()
+        runner = EffectRunner(layered_pacman, fps=25, invert=False)
+        runner.run(frames=150)
         #demo_all_effects()
         #bake_all_effects()
         #demo_play_baked_animation()
