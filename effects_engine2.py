@@ -550,7 +550,6 @@ class PulseFade(BaseEffect):
     def is_done(self):
         return self.done
 
-
 #TODO: Adjust. Unimpressive as a single point moving. maybe add a tail or fill in as it goes
 class SpiralSweep(BaseEffect):
     """
@@ -586,6 +585,87 @@ class SpiralSweep(BaseEffect):
             return [(x, y, 1.0)]
 
         return []
+
+    def is_done(self):
+        return self.done
+
+class PacMan(BaseEffect):
+    """
+    Animated Pac-Man moving across the display with a chomping mouth.
+    """
+
+    def __init__(
+        self,
+        x,
+        y,
+        dx=0.3,
+        dy=0.0,
+        radius=3.0,
+        speed=0.2,
+        wrap=True,
+    ):
+        self.start_x = float(x)
+        self.start_y = float(y)
+        self.dx = dx
+        self.dy = dy
+        self.radius = radius
+        self.speed = speed
+        self.wrap = wrap
+        self.reset()
+
+    def reset(self):
+        self.x = self.start_x
+        self.y = self.start_y
+        self.phase = 0.0
+        self.done = False
+
+    def step(self):
+        if self.done:
+            return []
+
+        w, h = scrollphathd.width, scrollphathd.height
+
+        # Move Pac-Man
+        self.x += self.dx
+        self.y += self.dy
+
+        if self.wrap:
+            self.x %= w
+            self.y %= h
+        else:
+            if not (0 <= self.x < w and 0 <= self.y < h):
+                self.done = True
+                return []
+
+        # Animate mouth (0 = closed, 1 = wide open)
+        self.phase += self.speed
+        mouth_open = (math.sin(self.phase) + 1.0) / 2.0
+        mouth_angle = mouth_open * (math.pi / 2.2)
+
+        # Direction angle
+        dir_angle = math.atan2(self.dy, self.dx)
+
+        pixels = []
+
+        for ix in range(w):
+            for iy in range(h):
+                dx = ix - self.x
+                dy = iy - self.y
+                dist = math.hypot(dx, dy)
+
+                if dist > self.radius:
+                    continue
+
+                angle = math.atan2(dy, dx)
+
+                # Mouth cutout
+                rel = (angle - dir_angle + math.pi * 3) % (2 * math.pi) - math.pi
+                if abs(rel) < mouth_angle:
+                    continue
+
+                pixels.append((ix, iy, 1.0))
+
+        return pixels
 
     def is_done(self):
         return self.done
@@ -840,14 +920,14 @@ if __name__ == '__main__':
         # Uncomment the below if your display is upside down
         scrollphathd.rotate(degrees=180)
 
-        # pulse_fade = PulseFade(speed=.05, repeat=True)
-        # pulse_fade.reset()
-        # runner = EffectRunner(pulse_fade,fps=25)
-        # runner.run(frames=150)
+        pac_man = PacMan(x=0, y=3)
+        pac_man.reset()
+        runner = EffectRunner(pac_man,fps=25)
+        runner.run(frames=150)
 
         #demo_all_effects()
         #bake_all_effects()
-        demo_play_baked_animation()
+        #demo_play_baked_animation()
     
 
     except KeyboardInterrupt:
