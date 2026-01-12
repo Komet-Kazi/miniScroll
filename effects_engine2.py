@@ -28,7 +28,7 @@ def clamp01(v: float) -> float:
     """
     return max(0.0, min(1.0, abs(v)))
 
-###----------------------
+###-------------------------------------------------------------------------------###
 from enum import Enum
 
 class BlendMode(Enum):
@@ -61,7 +61,7 @@ class BaseEffect:
     def is_done(self) -> bool:
         return False
 
-###----------------
+###-------------------------------------------------------------------------------###
 
 class Layer:
     def __init__(self, effect: BaseEffect, blend: BlendMode = BlendMode.MAX):
@@ -85,8 +85,11 @@ class LayeredEffect(BaseEffect):
 
         return [(x, y, b) for (x, y), b in pixels.items()]
 
+    def reset(self):
+        for layer in self.layers:
+            layer.effect.reset()
 ###-------------------------------------------------------------------------------###
-###---------------------------------------------------------------###
+
 import math
 import collections
 import random
@@ -137,8 +140,7 @@ class Sparkle(BaseEffect):
 
     def is_done(self):
         # """Return True when the sparkle cycle finishes (brightness == 0)."""
-        # return self.step_count > self.max_steps
-        return False
+        return self.step_count > self.max_steps
 
 class Comet(BaseEffect):
     """
@@ -243,7 +245,7 @@ class WaveRipple(BaseEffect):
         where brightness is normalized between 0.0 and 1.0.
     """
 
-    def __init__(self, cx, cy, speed=0.5, max_radius:float | None=None):
+    def __init__(self, cx, cy, speed:float = 0.5, max_radius:float | None = None):
         self.cx = cx
         self.cy = cy
         self.speed = speed
@@ -256,7 +258,10 @@ class WaveRipple(BaseEffect):
 
         w, h = scrollphathd.width, scrollphathd.height
 
-        self.max_radius = self._max_radius or math.hypot(w, h)
+        if self._max_radius is not None:
+            self.max_radius = self._max_radius
+        else:
+            self.max_radius = math.hypot(w, h)
 
     def step(self):
         if self.done:
@@ -291,6 +296,54 @@ class WaveRipple(BaseEffect):
     def is_done(self):
         return self.done
 
+class ExpandingBox(BaseEffect):
+    """
+    Expanding rectangular outline from a center.
+    """
+
+    def __init__(self, cx, cy, speed:float = 0.5, max_radius:float | None = None):
+        self.cx = cx
+        self.cy = cy
+        self.speed = speed
+        self._max_radius = max_radius
+        self.reset()
+
+    def reset(self):
+        self.radius = 0.0
+        self.done = False
+
+        w, h = scrollphathd.width, scrollphathd.height
+
+        if self._max_radius is not None:
+            self.max_radius = self._max_radius
+        else:
+            self.max_radius = math.hypot(w, h)
+
+    def step(self):
+        if self.done:
+            return []
+
+        pixels = []
+        r = self.radius
+
+        for x in range(scrollphathd.width):
+            for y in range(scrollphathd.height):
+                if (
+                    ((abs(x - self.cx) == r) and (abs(y - self.cy) <= r)) or
+                    ((abs(y - self.cy) == r) and (abs(x - self.cx) <= r))
+                ):
+                    pixels.append((x, y, 1.0))
+
+        self.radius += self.speed
+
+        if self.radius > self.max_radius:
+            self.done = True
+
+        return pixels
+
+    def is_done(self):
+        return self.done
+    
 class ScannerSweep(BaseEffect):
     """
     Sweeping scanner / radar-style line with a fading trail.
@@ -497,6 +550,8 @@ class PulseFade(BaseEffect):
     def is_done(self):
         return self.done
 
+
+#TODO: Adjust. Unimpressive as a single point moving. maybe add a tail or fill in as it goes
 class SpiralSweep(BaseEffect):
     """
     Spiral sweep expanding from center.
@@ -535,48 +590,8 @@ class SpiralSweep(BaseEffect):
     def is_done(self):
         return self.done
 
-class ExpandingBox(BaseEffect):
-    """
-    Expanding rectangular outline from a center.
-    """
-
-    def __init__(self, cx, cy, speed=1):
-        self.cx = cx
-        self.cy = cy
-        self.speed = speed
-        self.reset()
-
-    def reset(self):
-        self.radius = 0
-        self.done = False
-        self.max_radius = max(scrollphathd.width, scrollphathd.height)
-
-    def step(self):
-        if self.done:
-            return []
-
-        pixels = []
-        r = self.radius
-
-        for x in range(scrollphathd.width):
-            for y in range(scrollphathd.height):
-                if (
-                    abs(x - self.cx) == r and abs(y - self.cy) <= r or
-                    abs(y - self.cy) == r and abs(x - self.cx) <= r
-                ):
-                    pixels.append((x, y, 1.0))
-
-        self.radius += self.speed
-
-        if self.radius > self.max_radius:
-            self.done = True
-
-        return pixels
-
-    def is_done(self):
-        return self.done
 ###------------------------------------------------------------------------###
-#Effect Class Template
+# Effect Class Template
 # Design Questions to Answer First
 
 # Before writing code:
@@ -614,7 +629,7 @@ class MyEffect(BaseEffect):
 
 
 ###-------------------------------------------------------------------------------###
-#run an effect and display on the matrix in realtime
+# Run an effect and display on the matrix in realtime
 import time
 import scrollphathd
 
@@ -665,6 +680,9 @@ class AnimationRecorder:
         Record frames from an effect.
         If frames is None, record until effect.is_done().
         """
+        if frames is None and not hasattr(self.effect, "is_done"):
+            raise ValueError("Finite effect required when frames=None")
+
         self.effect.reset()
         count = 0
 
@@ -734,7 +752,7 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
     for name, effect in effects_to_demo:
         print(f"Running demo: {name}")
         effect.reset()
-        runner = EffectRunner(effect, fps=fps, invert=True)
+        runner = EffectRunner(effect, fps=fps, invert=False)
         runner.run(frames=frames_per_demo)
 
 def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
@@ -757,6 +775,8 @@ def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
     scrollphathd.clear()
 
     effects_to_bake= [
+        ("ExpandingBox", ExpandingBox(cx=8, cy=3,speed=1)),
+        ("SpiralSweep", SpiralSweep(cx=8, cy=3, speed=1)),
         ("Sparkle", Sparkle(randint(0, scrollphathd.width-1), randint(0, scrollphathd.height-1))),
         ("Comet", Comet(0, 0, dx=1, dy=1, tail_length=6, bounce=True)),
         ("WaveRipple", WaveRipple(scrollphathd.width//2, scrollphathd.height//2, speed=0.7)),
@@ -774,7 +794,7 @@ def bake_all_effects(fps: float = 25, frames_per_demo: int = 150):
 
     try:
         for name, effect in effects_to_bake:
-            print(f"Running demo: {name}")
+            print(f"Baking Effect: {name}")
             effect.reset()
             bake_animation(name, effect, fps)
 
@@ -792,6 +812,9 @@ def bake_animation(file_name: str, effect: BaseEffect, fps: float = 25, frames_t
 
 def demo_play_baked_animation(fps: float = 25, frames_to_play: int = 150):
     baked_animations = [
+        "ExpandingBox.anim.gz",
+        "SpiralSweep.anim.gz",
+        "PulseFade.anim.gz",
         "Sparkle.anim.gz",
         "Comet.anim.gz",
         "ScannerSweep.anim.gz",
@@ -800,7 +823,7 @@ def demo_play_baked_animation(fps: float = 25, frames_to_play: int = 150):
         "ZigZagSweep.anim.gz"]
     for baked_anim in baked_animations:
         anim = BakedAnimation(baked_anim, loop=False)
-        runner = EffectRunner(anim, fps=fps,invert=True)
+        runner = EffectRunner(anim, fps=fps,invert=False)
         runner.run(frames=frames_to_play)
 
 ###-------------------------------------------------------------------------------###
@@ -822,9 +845,9 @@ if __name__ == '__main__':
         # runner = EffectRunner(pulse_fade,fps=25)
         # runner.run(frames=150)
 
-        demo_all_effects()
+        #demo_all_effects()
         #bake_all_effects()
-        #demo_play_baked_animation()
+        demo_play_baked_animation()
     
 
     except KeyboardInterrupt:
