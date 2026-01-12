@@ -591,7 +591,8 @@ class SpiralSweep(BaseEffect):
 
 class PacMan(BaseEffect):
     """
-    Smooth animated Pac-Man with soft edges and stable motion.
+    Filled Pac-Man with a clean animated mouth.
+    Designed to be stable on low-resolution LED matrices.
     """
 
     def __init__(
@@ -600,8 +601,8 @@ class PacMan(BaseEffect):
         y,
         dx=0.25,
         dy=0.0,
-        radius=3.2,
-        chomp_speed=0.18,
+        radius=3.0,
+        chomp_speed=0.25,
         wrap=True,
     ):
         self.start_x = float(x)
@@ -625,7 +626,7 @@ class PacMan(BaseEffect):
 
         w, h = scrollphathd.width, scrollphathd.height
 
-        # Move (subpixel)
+        # Move (subpixel, but stable)
         self.x += self.dx
         self.y += self.dy
 
@@ -637,48 +638,46 @@ class PacMan(BaseEffect):
                 self.done = True
                 return []
 
-        # Chomp animation
+        # Chomp animation (clearly visible)
         self.phase += self.chomp_speed
-        mouth = (math.sin(self.phase) + 1.0) / 2.0
-        mouth_angle = mouth * (math.pi / 2.6)
+        mouth_open = (math.sin(self.phase) + 1.0) / 2.0
+        mouth_angle = mouth_open * (math.pi / 2.2)
 
-        # Direction
+        # Direction Pac-Man is facing
         dir_angle = math.atan2(self.dy, self.dx)
 
         pixels = []
 
-        edge_soft = 0.8      # circle edge softness
-        mouth_soft = 0.25    # mouth edge softness
-
-        # Only scan bounding box (important for stability + speed)
-        xmin = int(self.x - self.radius - 2)
-        xmax = int(self.x + self.radius + 2)
-        ymin = int(self.y - self.radius - 2)
-        ymax = int(self.y + self.radius + 2)
+        # Tight bounding box (reduces flicker)
+        xmin = int(self.x - self.radius - 1)
+        xmax = int(self.x + self.radius + 1)
+        ymin = int(self.y - self.radius - 1)
+        ymax = int(self.y + self.radius + 1)
 
         for ix in range(xmin, xmax + 1):
             for iy in range(ymin, ymax + 1):
                 if not (0 <= ix < w and 0 <= iy < h):
                     continue
 
+                # Sample at pixel center
                 dx = ix + 0.5 - self.x
                 dy = iy + 0.5 - self.y
                 dist = math.hypot(dx, dy)
 
-                # Soft circle mask
-                edge = 1.0 - clamp01((dist - self.radius) / edge_soft)
-                if edge <= 0.0:
+                # Solid filled body
+                if dist > self.radius:
                     continue
 
                 angle = math.atan2(dy, dx)
+
+                # Relative angle to direction
                 rel = (angle - dir_angle + math.pi * 3) % (2 * math.pi) - math.pi
 
-                # Soft mouth mask
-                mouth_cut = clamp01((abs(rel) - mouth_angle) / mouth_soft)
-                brightness = edge * mouth_cut
+                # Mouth cutout (hard, stable)
+                if abs(rel) < mouth_angle:
+                    continue
 
-                if brightness > 0.02:
-                    pixels.append((ix, iy, brightness))
+                pixels.append((ix, iy, 1.0))
 
         return pixels
 
