@@ -762,7 +762,7 @@ class PelletRow(BaseEffect):
         self.pellets.discard(int(x))
 
     def step(self):
-        return [(x, self.y, 0.5) for x in self.pellets]
+        return [(x, self.y, 0.8) for x in self.pellets]
 
     def is_done(self):
         return self.done
