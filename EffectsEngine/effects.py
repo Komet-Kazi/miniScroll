@@ -875,71 +875,7 @@ class PacManScene(BaseEffect):
         return self.done
 
 ###------------------------------------------------------------------------###
-# Text Reveal Animation and scene logic
-class RevealText(BaseEffect):
-    """
-    Stateful text mask that reveals pixels over time.
 
-    Holds a static set of text pixels and reveals them incrementally
-    when `reveal_at()` is called.
-    """
-    def __init__(self, text_pixels: dict[tuple[int, int], float]):
-        self.text_pixels = text_pixels
-        self.reset()
-
-    def reset(self):
-        self.revealed = set()
-        self.done = False
-
-    def reveal_at(self, x, y, radius=0):
-        for (tx, ty), b in self.text_pixels.items():
-            if abs(tx - x) <= radius and abs(ty - y) <= radius:
-                self.revealed.add((tx, ty))
-
-        if len(self.revealed) == len(self.text_pixels):
-            self.done = True
-
-    def step(self):
-        return [(x, y, self.text_pixels[(x, y)]) for (x, y) in self.revealed]
-
-    def is_done(self):
-        return self.done
-
-class RevealTextScene(BaseEffect):
-    """
-    Scene that reveals text using another effect as a mask.
-
-    A revealer effect (scanner, comet, etc.) determines which text
-    pixels become visible as it passes over them.
-    """
-    def __init__(self, revealer: BaseEffect, text: RevealText, reveal_radius=0):
-        self.revealer = revealer
-        self.text = text
-        self.radius = reveal_radius
-        self.reset()
-
-    def reset(self):
-        self.revealer.reset()
-        self.text.reset()
-        self.done = False
-
-    def step(self):
-        reveal_pixels = self.revealer.step()
-
-        for x, y, _ in reveal_pixels:
-            self.text.reveal_at(x, y, self.radius)
-
-        pixels = []
-        pixels += self.text.step()
-        pixels += reveal_pixels  # optional: show sweep
-
-        if self.text.is_done():
-            self.done = True
-
-        return pixels
-
-    def is_done(self):
-        return self.done
 
 ###------------------------------------------------------------------------###
 # Effect Class Template

@@ -153,35 +153,6 @@ if __name__ == '__main__':
         # Uncomment the below if your display is upside down
         scrollphathd.rotate(degrees=180)
 
-        # layered_pacman = LayeredEffect(
-        #     Layer(PelletRow(y=3),BlendMode.OVERWRITE),
-        #     Layer(Ghost(-6, 1, x_speed=0.2), BlendMode.MAX),
-        #     Layer(PacMan(0, 3, x_speed=0.25), BlendMode.OVERWRITE))
-        # layered_pacman.reset()
-        # runner = EffectRunner(layered_pacman, fps=25, invert=False)
-        # runner.run(frames=150)
-                
-        # text_mask = rasterize_string(
-        #     "HELLO",
-        #     x=1,
-        #     y=2,
-        #     brightness=1.0
-        # )
-
-        # text = RevealText(text_mask)
-
-        # scanner = ScannerSweep(
-        #     horizontal=True,
-        #     speed=1,
-        #     trail_length=4,
-        #     bounce=False
-        # )
-
-        # scene = RevealTextScene(scanner, text, reveal_radius=0)
-
-        # runner = EffectRunner(scene, fps=25)
-        # runner.run()
-
 
         demo_all_effects()
         # bake_all_effects()

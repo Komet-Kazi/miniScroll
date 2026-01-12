@@ -66,9 +66,6 @@ class EffectRunner:
 ###-------------------------------------------------------------------------------###
 # AnimationRecorder a replacement for the EffectRunner Class that saves frames to a file to be read from later.
 
-import json
-import gzip
-
 class AnimationRecorder:
     """
     Records frames from an effect and saves them to disk.
