@@ -28,6 +28,46 @@ def clamp01(v: float) -> float:
     """
     return max(0.0, min(1.0, abs(v)))
 
+from contextlib import contextmanager
+
+@contextmanager
+def capture_pixels():
+    """This safely hijacks rendering and restores it afterward."""
+    captured = {}
+
+    original_set_pixel = scrollphathd.set_pixel
+
+    def fake_set_pixel(x, y, b):
+        if b > 0:
+            captured[(x, y)] = max(captured.get((x, y), 0.0), b)
+
+    scrollphathd.set_pixel = fake_set_pixel
+    try:
+        yield captured
+    finally:
+        scrollphathd.set_pixel = original_set_pixel
+    
+def rasterize_string(
+    text,
+    x=0,
+    y=0,
+    brightness=1.0,
+    **kwargs
+) -> dict[tuple[int, int], float]:
+    """
+    Returns {(x, y): brightness} for text drawn via write_string.
+    """
+    with capture_pixels() as pixels:
+        scrollphathd.clear()
+        scrollphathd.write_string(
+            text,
+            x=x,
+            y=y,
+            brightness=brightness,
+            **kwargs
+        )
+    return pixels
+
 ###-------------------------------------------------------------------------------###
 from enum import Enum
 
@@ -807,7 +847,58 @@ class PacManScene(BaseEffect):
         def is_done(self):
             return self.done
         
+class RevealText(BaseEffect):
+    def __init__(self, text_pixels: dict[tuple[int, int], float]):
+        self.text_pixels = text_pixels
+        self.reset()
 
+    def reset(self):
+        self.revealed = set()
+        self.done = False
+
+    def reveal_at(self, x, y, radius=0):
+        for (tx, ty), b in self.text_pixels.items():
+            if abs(tx - x) <= radius and abs(ty - y) <= radius:
+                self.revealed.add((tx, ty))
+
+        if len(self.revealed) == len(self.text_pixels):
+            self.done = True
+
+    def step(self):
+        return [(x, y, self.text_pixels[(x, y)]) for (x, y) in self.revealed]
+
+    def is_done(self):
+        return self.done
+
+class RevealTextScene(BaseEffect):
+    def __init__(self, revealer: BaseEffect, text: RevealText, reveal_radius=0):
+        self.revealer = revealer
+        self.text = text
+        self.radius = reveal_radius
+        self.reset()
+
+    def reset(self):
+        self.revealer.reset()
+        self.text.reset()
+        self.done = False
+
+    def step(self):
+        reveal_pixels = self.revealer.step()
+
+        for x, y, _ in reveal_pixels:
+            self.text.reveal_at(x, y, self.radius)
+
+        pixels = []
+        pixels += self.text.step()
+        pixels += reveal_pixels  # optional: show sweep
+
+        if self.text.is_done():
+            self.done = True
+
+        return pixels
+
+    def is_done(self):
+        return self.done
 
 ###------------------------------------------------------------------------###
 # Effect Class Template
@@ -851,6 +942,7 @@ class MyEffect(BaseEffect):
 # Run an effect and display on the matrix in realtime
 import time
 import scrollphathd
+
 
 class EffectRunner:
     def __init__(self, effect: BaseEffect, fps: float = 20, invert: bool = False):
@@ -1077,25 +1169,6 @@ if __name__ == '__main__':
         # Uncomment the below if your display is upside down
         scrollphathd.rotate(degrees=180)
 
-       
-        # ghost = Ghost(x=0, y=2)
-        # ghost.reset()
-        # runner = EffectRunner(ghost,fps=25, invert=False)
-        # runner.run(frames=150)
-
-
-        # pellet_row = PelletRow(y=3)
-        # pellet_row.reset()
-        # runner = EffectRunner(pellet_row,fps=25, invert=False)
-        # runner.run(frames=150)
-
-
-        # pac_man = PacMan(x=0, y=3, chomp_speed=1)
-        # pac_man.reset()
-        # runner = EffectRunner(pac_man,fps=25, invert=False)
-        # runner.run(frames=150)
-
-
         # layered_pacman = LayeredEffect(
         #     Layer(PelletRow(y=3),BlendMode.OVERWRITE),
         #     Layer(Ghost(-6, 1, x_speed=0.2), BlendMode.MAX),
@@ -1103,7 +1176,30 @@ if __name__ == '__main__':
         # layered_pacman.reset()
         # runner = EffectRunner(layered_pacman, fps=25, invert=False)
         # runner.run(frames=150)
-        demo_all_effects()
+                
+        text_mask = rasterize_string(
+            "HELLO",
+            x=1,
+            y=2,
+            brightness=1.0
+        )
+
+        text = RevealText(text_mask)
+
+        scanner = ScannerSweep(
+            horizontal=True,
+            speed=1,
+            trail_length=4,
+            bounce=False
+        )
+
+        scene = RevealTextScene(scanner, text, reveal_radius=0)
+
+        runner = EffectRunner(scene, fps=25)
+        runner.run()
+
+
+        # demo_all_effects()
         # bake_all_effects()
         # demo_play_baked_animation()
     
