@@ -132,7 +132,7 @@ class BaseEffect:
 
 ###-------------------------------------------------------------------------------###
 
-class Layer:
+class Layer():
     """
     Container pairing an effect with a blend mode.
 
@@ -167,6 +167,14 @@ class LayeredEffect(BaseEffect):
         for layer in self.layers:
             if layer.effect.is_done():
                 layer.effect.reset()
+
+            if isinstance(layer.effect, BufferEffect):
+
+                layer.effect.step()  # effect draws directly
+
+                scrollphathd.show()
+                time.sleep(1/20)
+                continue
 
             for x, y, b in layer.effect.step():
                 key = (x, y)
@@ -568,6 +576,81 @@ class ZigZagSweep(BaseEffect):
     def is_done(self):
         return self.done
 
+class PulseFade(BaseEffect):
+    """
+    Global brightness pulse across the entire display.
+    """
+
+    def __init__(self, speed=0.05, repeat=True):
+        self.speed = speed
+        self.repeat = repeat
+        self.reset()
+
+    def reset(self):
+        self.phase = 0.0
+        self.done = False
+
+    def step(self):
+        if self.done:
+            return []
+
+        brightness = (math.sin(self.phase) + 1.0) / 2.0
+        self.phase += self.speed
+
+        if self.phase >= math.pi * 2:
+            if self.repeat:
+                self.phase = 0.0
+            else:
+                self.done = True
+
+        pixels = []
+        for x in range(scrollphathd.width):
+            for y in range(scrollphathd.height):
+                pixels.append((x, y, brightness))
+
+        return pixels
+
+    def is_done(self):
+        return self.done
+#TODO: Adjust. Unimpressive as a single point moving. maybe add a tail or fill in as it goes
+class SpiralSweep(BaseEffect):
+    """
+    Spiral sweep expanding from center.
+    """
+
+    def __init__(self, cx, cy, speed=0.2):
+        self.cx = cx
+        self.cy = cy
+        self.speed = speed
+        self.reset()
+
+    def reset(self):
+        self.angle = 0.0
+        self.radius = 0.0
+        self.done = False
+        self.max_radius = math.hypot(scrollphathd.width, scrollphathd.height)
+
+    def step(self):
+        if self.done:
+            return []
+
+        x = int(round(self.cx + math.cos(self.angle) * self.radius))
+        y = int(round(self.cy + math.sin(self.angle) * self.radius))
+
+        self.angle += self.speed
+        self.radius += self.speed * 0.1
+
+        if self.radius > self.max_radius:
+            self.done = True
+
+        if 0 <= x < scrollphathd.width and 0 <= y < scrollphathd.height:
+            return [(x, y, 1.0)]
+
+        return []
+
+    def is_done(self):
+        return self.done
+
 class BakedAnimation(BaseEffect):
     """
     Plays back a pre-recorded animation from a compressed file.
@@ -612,82 +695,15 @@ class BakedAnimation(BaseEffect):
     def is_done(self):
         return self.done
 
-class PulseFade(BaseEffect):
-    """
-    Global brightness pulse across the entire display.
-    """
-
-    def __init__(self, speed=0.05, repeat=True):
-        self.speed = speed
-        self.repeat = repeat
-        self.reset()
-
-    def reset(self):
-        self.phase = 0.0
-        self.done = False
+class Scene(BaseEffect):
+    def __init__(self, *effects):
+        self.effects = effects
 
     def step(self):
-        if self.done:
-            return []
-
-        brightness = (math.sin(self.phase) + 1.0) / 2.0
-        self.phase += self.speed
-
-        if self.phase >= math.pi * 2:
-            if self.repeat:
-                self.phase = 0.0
-            else:
-                self.done = True
-
         pixels = []
-        for x in range(scrollphathd.width):
-            for y in range(scrollphathd.height):
-                pixels.append((x, y, brightness))
-
+        for e in self.effects:
+            pixels.extend(e.step())
         return pixels
-
-    def is_done(self):
-        return self.done
-
-#TODO: Adjust. Unimpressive as a single point moving. maybe add a tail or fill in as it goes
-class SpiralSweep(BaseEffect):
-    """
-    Spiral sweep expanding from center.
-    """
-
-    def __init__(self, cx, cy, speed=0.2):
-        self.cx = cx
-        self.cy = cy
-        self.speed = speed
-        self.reset()
-
-    def reset(self):
-        self.angle = 0.0
-        self.radius = 0.0
-        self.done = False
-        self.max_radius = math.hypot(scrollphathd.width, scrollphathd.height)
-
-    def step(self):
-        if self.done:
-            return []
-
-        x = int(round(self.cx + math.cos(self.angle) * self.radius))
-        y = int(round(self.cy + math.sin(self.angle) * self.radius))
-
-        self.angle += self.speed
-        self.radius += self.speed * 0.1
-
-        if self.radius > self.max_radius:
-            self.done = True
-
-        if 0 <= x < scrollphathd.width and 0 <= y < scrollphathd.height:
-            return [(x, y, 1.0)]
-
-        return []
-
-    def is_done(self):
-        return self.done
-
 
 ###------------------------------------------------------------------------###
 # Pac Man, Pellet, and Ghost animation and scene logic
@@ -931,72 +947,124 @@ class PacManScene(BaseEffect):
         return self.done
 
 ###------------------------------------------------------------------------###
-# Text Reveal Animation and scene logic
-class RevealText(BaseEffect):
+class BufferEffect(BaseEffect):
     """
-    Stateful text mask that reveals pixels over time.
+    Effect that draws directly into the Scroll pHAT HD buffer.
 
-    Holds a static set of text pixels and reveals them incrementally
-    when `reveal_at()` is called.
+    BaseEffect → returns pixels
+    BufferEffect → draws pixels
+    Writes directly to the Scroll pHAT HD buffer
+
+    Lets the hardware library manage transforms
+    - Does not return pixels
+    - Responsible for calling scrollphathd.* drawing functions
+    To keep sanity:
+
+        Should NOT call scrollphathd.show()
+        Should NOT sleep
+        Should NOT manage FPS
+        Should NOT clear the buffer unless explicitly intended
+
+        Those are runner responsibilities.
+
     """
-    def __init__(self, text_pixels: dict[tuple[int, int], float]):
-        self.text_pixels = text_pixels
-        self.reset()
-
-    def reset(self):
-        self.revealed = set()
-        self.done = False
-
-    def reveal_at(self, x, y, radius=0):
-        for (tx, ty), b in self.text_pixels.items():
-            if abs(tx - x) <= radius and abs(ty - y) <= radius:
-                self.revealed.add((tx, ty))
-
-        if len(self.revealed) == len(self.text_pixels):
-            self.done = True
-
     def step(self):
-        return [(x, y, self.text_pixels[(x, y)]) for (x, y) in self.revealed]
+        """
+        Perform one frame of drawing into the hardware buffer.
+        """
+        raise NotImplementedError
 
-    def is_done(self):
-        return self.done
+    def render(self):
+        scrollphathd.clear()
+        self.step()
 
-class RevealTextScene(BaseEffect):
+class StaticText(BufferEffect):
     """
-    Scene that reveals text using another effect as a mask.
-
-    A revealer effect (scanner, comet, etc.) determines which text
-    pixels become visible as it passes over them.
+    Static Text Effect
     """
-    def __init__(self, revealer: BaseEffect, text: RevealText, reveal_radius=0):
-        self.revealer = revealer
+    def __init__(self, text, x=0, y=0, brightness=1.0):
         self.text = text
-        self.radius = reveal_radius
-        self.reset()
+        self.x = x
+        self.y = y
+        self.brightness = brightness
+    
+    def step(self):
+        scrollphathd.write_string(
+            self.text,
+            x=self.x,
+            y=self.y,
+            font=font3x5,
+            brightness=self.brightness
+        )
+
+class CameraScroll:
+    """
+    Camera scroll mixin for buffer-native effects.
+    Controls the Scroll pHAT HD viewport position.
+    """
+
+    def __init__(self, speed=1, start_x=0):
+        self.camera_x = start_x
+        self.speed = speed
+
+    def reset_camera(self):
+        self.camera_x = 0
+
+    def step_camera(self):
+        scrollphathd.scroll_to(self.camera_x)
+        self.camera_x += self.speed
+
+class ScrollingText(BufferEffect):
+    """
+    Scrolling Text takes a String and an integer value for speed. 
+    and uses them to create a Static Text Class and a Camera Scroll class. Together it gives us scrolling text!
+    """
+    def __init__(self, text, speed=1):
+        self.text = StaticText(text)
+        self.camera = CameraScroll(speed)
 
     def reset(self):
-        self.revealer.reset()
-        self.text.reset()
-        self.done = False
+        self.camera.reset_camera()
 
     def step(self):
-        reveal_pixels = self.revealer.step()
+        self.text.step()
+        self.camera.step_camera()
 
-        for x, y, _ in reveal_pixels:
-            self.text.reveal_at(x, y, self.radius)
+class RotateScene(BaseEffect):
+    """ 
+    Rotating scene effect
+    
+    Can be used for Rotating logos
 
-        pixels = []
-        pixels += self.text.step()
-        pixels += reveal_pixels  # optional: show sweep
+    Flipping warnings
 
-        if self.text.is_done():
-            self.done = True
+    Direction changes with zero math"""
+    def __init__(self, degrees_per_step=90):
+        self.deg = 0
+        self.step_size = degrees_per_step
 
-        return pixels
+    def step(self):
+        self.deg = (self.deg + self.step_size) % 360
+        scrollphathd.rotate(self.deg)
+        return []
 
-    def is_done(self):
-        return self.done
+class WaveGraph(BufferEffect):
+    """
+    An animated waveform
+    """
+    def __init__(self):
+        self.phase = 0
 
+    def step(self):
+        values = [
+            math.sin(self.phase + i * 0.4)
+            for i in range(17)
+        ]
+        scrollphathd.set_graph(values, low=-1, high=1)
+        self.phase += 0.2
+
+
+###------------------------------------------------------------------------###
 ###------------------------------------------------------------------------###
 # Effect Class Template
 # Design Questions to Answer First
@@ -1012,6 +1080,16 @@ class RevealTextScene(BaseEffect):
 # Should it layer well with others?
 
 # Does it reset cleanly?
+
+# When writing an effect, ask:
+
+# “Do I want to compute pixels, or use the hardware buffer?”
+
+# Compute pixels → subclass BaseEffect
+
+# Use buffer features → subclass BufferEffect
+
+# Everything else stays consistent.
 
 class MyEffect(BaseEffect):
     """
@@ -1073,8 +1151,19 @@ class EffectRunner:
         count = 0
 
         while frames is None or count < frames:
-            frame_pixels = {(x, y): b for x, y, b in self.effect.step()}
+            # NEW: buffer-native path
+            if isinstance(self.effect, BufferEffect):
+                scrollphathd.clear()
 
+                self.effect.step()  # effect draws directly
+
+                scrollphathd.show()
+                time.sleep(self.delay)
+                count += 1
+                continue
+
+            frame_pixels = {(x, y): b for x, y, b in self.effect.step()}
+            
             scrollphathd.clear()
 
             for x in range(scrollphathd.width):
@@ -1198,6 +1287,50 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
         runner = EffectRunner(effect, fps=fps, invert=False)
         runner.run(frames=frames_per_demo)
 
+def demo_all_effects2():
+    """
+    Demonstrate all effects and engine capabilities:
+    - Static buffer effects
+    - Camera-based scrolling
+    - Composite effects
+    - Pixel-based effects
+    """
+
+    effects = [
+
+        # 6. Composite: pixel effect + text overlay
+        ("Pixel + Text Overlay",
+        LayeredEffect(
+        Layer(PacMan(x=0, y=3, x_speed=0.25),blend=BlendMode.OVERWRITE),
+        Layer(StaticText("HUD", x=0, y=1),blend=BlendMode.OVERWRITE)
+        )),
+        # 1. Static text (buffer-native, no camera)
+        ("StaticText", StaticText("STATIC", x=0, y=1)),
+
+        # 2. Scanner (buffer-native animation)
+        ("Scanner", ScannerSweep(speed=1)),
+
+        # 3. Scrolling text (StaticText + CameraScroll)
+        ("ScrollingText", ScrollingText("SCROLLING TEXT", speed=1)),
+
+        # 5. Pixel-based effect (example)
+        ("PacMan", PacMan(x=0, y=3, x_speed=0.25)),
+    ]
+
+    for name, effect in effects:
+        print(f"\n--- Running: {name} ---")
+
+        runner = EffectRunner(
+            effect=effect,
+            fps=30
+        )
+
+        effect.reset()
+        runner.run(frames=120)
+
+        time.sleep(0.5)
+
+
 def bake_all_effects(fps: float = 25, frames_to_save: int = 150):
     """
     Demonstrates all available effects and blending modes on Scroll pHAT HD.
@@ -1300,30 +1433,11 @@ if __name__ == '__main__':
         # layered_pacman.reset()
         # runner = EffectRunner(layered_pacman, fps=25, invert=False)
         # runner.run(frames=150)
-                
-        text_mask = rasterize_string(
-            "HELLO",
-            x=1,
-            y=2,
-            brightness=1.0
-        )
+        # text_effect = ScrollingText(" Hello KiKi ")
+        # runner = EffectRunner(text_effect,fps=25,invert=False)
+        # runner.run()
 
-        text = RevealText(text_mask)
-
-        scanner = ScannerSweep(
-            horizontal=True,
-            speed=1,
-            trail_length=4,
-            bounce=False
-        )
-
-        scene = RevealTextScene(scanner, text, reveal_radius=0)
-
-        runner = EffectRunner(scene, fps=25)
-        runner.run()
-
-
-        # demo_all_effects()
+        demo_all_effects2()
         # bake_all_effects()
         # demo_play_baked_animation()
     
