@@ -20,7 +20,7 @@ import math, collections
 from random import randint
 from enum import Enum
 
-import scrollphathd
+from runner import DisplayConfig
 
 ###------------------------------------------------------------------------------###
 # Helper Functions
@@ -69,6 +69,11 @@ class BaseEffect:
         - step() returns a list of (x, y, brightness) tuples
         - reset() restores the effect to its initial state
         - is_done() indicates whether the effect has finished
+
+    Hardware Agnostic Design:
+        Effects should accept optional `width` and `height` parameters in their
+        __init__() methods to remain hardware-agnostic. Import DisplayConfig
+        from runner module when needed for default dimensions.
     """
     def step(self) -> list[tuple[int, int, float]]:
         """Return (x, y, brightness) pixels for this frame."""
@@ -200,12 +205,16 @@ class Comet(BaseEffect):
         dy (float): Vertical movement per frame.
         tail_length (int): Number of pixels in the trailing tail.
         bounce (bool): Whether to bounce off edges or wrap around.
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
 
     Returns:
         Each call to `step()` returns a list of (x, y, brightness) tuples
-        suitable for direct use with the Scroll pHAT HD.
+        suitable for direct use with any LED matrix.
     """
-    def __init__(self, x, y, dx=1, dy=0, tail_length=6, bounce=True):
+    def __init__(self, x, y, dx=1, dy=0, tail_length=6, bounce=True, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.dx = dx
         self.dy = dy
         self.tail = collections.deque(maxlen=tail_length)
@@ -222,7 +231,7 @@ class Comet(BaseEffect):
         self.distance = 0.0
 
     def step(self):
-        w, h = scrollphathd.width, scrollphathd.height
+        w, h = self.width, self.height
         nx = self.x + self.dx
         ny = self.y + self.dy
 
@@ -275,13 +284,17 @@ class WaveRipple(BaseEffect):
         speed (float): Radial growth per frame (pixels per frame).
         max_radius (float | None): Maximum ripple radius. If None, the
             diagonal of the display is used to fully cover the matrix.
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
 
     Returns:
         Each call to `step()` returns a list of (x, y, brightness) tuples,
         where brightness is normalized between 0.0 and 1.0.
     """
 
-    def __init__(self, cx, cy, speed:float = 0.5, max_radius:float | None = None):
+    def __init__(self, cx, cy, speed:float = 0.5, max_radius:float | None = None, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.cx = cx
         self.cy = cy
         self.speed = speed
@@ -292,7 +305,7 @@ class WaveRipple(BaseEffect):
         self.radius = 0.0
         self.done = False
 
-        w, h = scrollphathd.width, scrollphathd.height
+        w, h = self.width, self.height
 
         if self._max_radius is not None:
             self.max_radius = self._max_radius
@@ -304,7 +317,7 @@ class WaveRipple(BaseEffect):
             return []
 
         pixels = []
-        w, h = scrollphathd.width, scrollphathd.height
+        w, h = self.width, self.height
 
         for x in range(w):
             for y in range(h):
@@ -335,9 +348,19 @@ class WaveRipple(BaseEffect):
 class ExpandingBox(BaseEffect):
     """
     Expanding rectangular outline from a center.
+
+    Args:
+        cx: Center x position.
+        cy: Center y position.
+        speed: Expansion speed per frame.
+        max_radius: Maximum expansion radius (None = diagonal).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
     """
 
-    def __init__(self, cx, cy, speed:float = 0.5, max_radius:float | None = None):
+    def __init__(self, cx, cy, speed:float = 0.5, max_radius:float | None = None, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.cx = cx
         self.cy = cy
         self.speed = speed
@@ -348,7 +371,7 @@ class ExpandingBox(BaseEffect):
         self.radius = 0.0
         self.done = False
 
-        w, h = scrollphathd.width, scrollphathd.height
+        w, h = self.width, self.height
 
         if self._max_radius is not None:
             self.max_radius = self._max_radius
@@ -362,8 +385,8 @@ class ExpandingBox(BaseEffect):
         pixels = []
         r = self.radius
 
-        for x in range(scrollphathd.width):
-            for y in range(scrollphathd.height):
+        for x in range(self.width):
+            for y in range(self.height):
                 if (
                     ((abs(x - self.cx) == r) and (abs(y - self.cy) <= r)) or
                     ((abs(y - self.cy) == r) and (abs(x - self.cx) <= r))
@@ -383,16 +406,19 @@ class ExpandingBox(BaseEffect):
 class ScannerSweep(BaseEffect):
     """
     Sweeping scanner / radar-style line with a fading trail.
+
+    Args:
+        horizontal: True for left→right sweep, False for top→bottom
+        speed: Pixels per frame
+        trail_length: Number of trailing pixels
+        bounce: Reverse direction at edges
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
     """
 
-    def __init__(self, horizontal=True, speed=1, trail_length=5, bounce=True):
-        """
-        Args:
-            horizontal: True for left→right sweep, False for top→bottom
-            speed: Pixels per frame
-            trail_length: Number of trailing pixels
-            bounce: Reverse direction at edges
-        """
+    def __init__(self, horizontal=True, speed=1, trail_length=5, bounce=True, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.horizontal = horizontal
         self.speed = speed
         self.trail_length = trail_length
@@ -410,7 +436,7 @@ class ScannerSweep(BaseEffect):
         if self.done:
             return []
 
-        w, h = scrollphathd.width, scrollphathd.height
+        w, h = self.width, self.height
 
         # move scanner
         self.pos += self.x_direction * self.speed
@@ -451,17 +477,26 @@ class ZigZagSweep(BaseEffect):
 
     A single point sweeps left/right across a row, then moves up/down to the
     next row, reversing horizontal direction each time.
+
+    Args:
+        speed: Movement speed per frame.
+        trail_length: Number of trailing pixels.
+        bounce: Reverse direction at edges.
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
     """
 
-    def __init__(self, speed=1, trail_length=6, bounce=True):
+    def __init__(self, speed=1, trail_length=6, bounce=True, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.speed = speed
         self.trail_length = trail_length
         self.bounce = bounce
         self.reset()
 
     def reset(self):
-        self.w = scrollphathd.width
-        self.h = scrollphathd.height
+        self.w = self.width
+        self.h = self.height
 
         self.row = 0
         self.col = 0
@@ -562,9 +597,17 @@ class BakedAnimation(BaseEffect):
 class PulseFade(BaseEffect):
     """
     Global brightness pulse across the entire display.
+
+    Args:
+        speed: Pulse speed.
+        repeat: Whether to repeat continuously.
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
     """
 
-    def __init__(self, speed=0.05, repeat=True):
+    def __init__(self, speed=0.05, repeat=True, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.speed = speed
         self.repeat = repeat
         self.reset()
@@ -587,8 +630,8 @@ class PulseFade(BaseEffect):
                 self.done = True
 
         pixels = []
-        for x in range(scrollphathd.width):
-            for y in range(scrollphathd.height):
+        for x in range(self.width):
+            for y in range(self.height):
                 pixels.append((x, y, brightness))
 
         return pixels
@@ -600,9 +643,18 @@ class PulseFade(BaseEffect):
 class SpiralSweep(BaseEffect):
     """
     Spiral sweep expanding from center.
+
+    Args:
+        cx: Center x position.
+        cy: Center y position.
+        speed: Rotation and expansion speed.
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
     """
 
-    def __init__(self, cx, cy, speed=0.2):
+    def __init__(self, cx, cy, speed=0.2, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.cx = cx
         self.cy = cy
         self.speed = speed
@@ -612,7 +664,7 @@ class SpiralSweep(BaseEffect):
         self.angle = 0.0
         self.radius = 0.0
         self.done = False
-        self.max_radius = math.hypot(scrollphathd.width, scrollphathd.height)
+        self.max_radius = math.hypot(self.width, self.height)
 
     def step(self):
         if self.done:
@@ -627,7 +679,7 @@ class SpiralSweep(BaseEffect):
         if self.radius > self.max_radius:
             self.done = True
 
-        if 0 <= x < scrollphathd.width and 0 <= y < scrollphathd.height:
+        if 0 <= x < self.width and 0 <= y < self.height:
             return [(x, y, 1.0)]
 
         return []
@@ -651,6 +703,8 @@ class PacMan(BaseEffect):
         radius: Body radius in pixels.
         chomp_speed: Mouth animation speed.
         wrap: Whether to wrap around display edges.
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
     """
 
     def __init__(
@@ -662,7 +716,11 @@ class PacMan(BaseEffect):
         radius=3.0,
         chomp_speed=1.0,
         wrap=True,
+        width=None,
+        height=None,
     ):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.start_x = float(x)
         self.start_y = float(y)
         self.dx = x_speed
@@ -682,7 +740,7 @@ class PacMan(BaseEffect):
         if self.done:
             return []
 
-        w, h = scrollphathd.width, scrollphathd.height
+        w, h = self.width, self.height
 
         # Move (subpixel, but stable)
         self.x += self.dx
@@ -749,13 +807,18 @@ class PelletRow(BaseEffect):
 
     Pellets are removed when `eat(x)` is called, typically by a
     Pac-Man style effect.
+
+    Args:
+        y: Y position of the pellet row.
+        width (int | None): Display width (None = use DisplayConfig).
     """
-    def __init__(self, y):
+    def __init__(self, y, width=None):
+        self.width = width if width is not None else DisplayConfig.width
         self.y = y
         self.reset()
 
     def reset(self):
-        self.pellets = {x for x in range(0,scrollphathd.width,3)}
+        self.pellets = {x for x in range(0, self.width, 3)}
         self.done = False
 
     def eat(self, x):
@@ -773,8 +836,17 @@ class Ghost(BaseEffect):
 
     Moves horizontally across the display and completes once fully
     off-screen.
+
+    Args:
+        x: Starting x position.
+        y: Y position.
+        x_speed: Horizontal movement speed.
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
     """
-    def __init__(self, x, y, x_speed=0.15):
+    def __init__(self, x, y, x_speed=0.15, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
         self.start_x = x
         self.y = y
         self.x_speed = x_speed
@@ -789,12 +861,12 @@ class Ghost(BaseEffect):
         self.x += self.x_speed
         self.phase += 1
 
-        if self.x >= scrollphathd.width + 4:
+        if self.x >= self.width + 4:
             self.done = True
             return []
 
         pixels = []
-        w, h = scrollphathd.width, scrollphathd.height
+        w, h = self.width, self.height
 
         cx = int(round(self.x))
         cy = int(round(self.y))
@@ -843,6 +915,9 @@ class PacManScene(BaseEffect):
 
     Handles interaction logic such as pellet consumption and scene
     termination when Pac-Man exits the display.
+
+    Note: Assumes all sub-effects (pellets, pacman, ghost) share the same
+    display dimensions. Uses pacman's width for exit detection.
     """
 
     def __init__(self, pellets, pacman, ghost) -> None:
@@ -866,7 +941,7 @@ class PacManScene(BaseEffect):
         pixels += self.ghost.step()
         pixels += pacman_pixels
 
-        if self.pacman.x > scrollphathd.width + 4:
+        if self.pacman.x > self.pacman.width + 4:
             self.done = True
 
         return pixels

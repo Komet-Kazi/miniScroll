@@ -2,7 +2,7 @@
 import scrollphathd
 
 from effects import *
-from runner import EffectRunner, AnimationRecorder
+from runner import EffectRunner, AnimationRecorder, DisplayConfig
 
 ###-------------------------------------------------------------------------------###
 # Examples
@@ -27,8 +27,8 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
 
     effects_to_demo = [
         ("PacManScene", PacManScene(
-            PelletRow(y=3), 
-            PacMan(0, 3, x_speed=0.25, wrap=False), 
+            PelletRow(y=3),
+            PacMan(0, 3, x_speed=0.25, wrap=False),
             Ghost(-7, 2))),
         ("Layered_PacMan",LayeredEffect(
             Layer(PelletRow(y=3),BlendMode.OVERWRITE),
@@ -36,10 +36,10 @@ def demo_all_effects(fps: float = 25, frames_per_demo: int = 150):
             Layer(PacMan(0, 3, x_speed=0.25), BlendMode.OVERWRITE))),
         ("ExpandingBox", ExpandingBox(cx=8, cy=3,speed=1)),
         ("SpiralSweep", SpiralSweep(cx=8, cy=3, speed=1)),
-        ("Sparkle", Sparkle(randint(0, scrollphathd.width-1),
-                            randint(0, scrollphathd.height-1))),
+        ("Sparkle", Sparkle(randint(0, DisplayConfig.width-1),
+                            randint(0, DisplayConfig.height-1))),
         ("Comet", Comet(0, 0, dx=1, dy=1, tail_length=6, bounce=True)),
-        ("WaveRipple", WaveRipple(scrollphathd.width//2, scrollphathd.height//2, speed=0.7)),
+        ("WaveRipple", WaveRipple(DisplayConfig.width//2, DisplayConfig.height//2, speed=0.7)),
         ("ScannerSweep", ScannerSweep(horizontal=True, speed=1, trail_length=6, bounce=True)),
         ("ZigZagSweep", ZigZagSweep(speed=1, trail_length=6, bounce=True)),
         ("PulseFade", PulseFade(speed=.05, repeat=True)),
@@ -79,8 +79,8 @@ def bake_all_effects(fps: float = 25, frames_to_save: int = 150):
 
     effects_to_bake= [
         ("PacManScene", PacManScene(
-            PelletRow(y=3), 
-            PacMan(0, 3, x_speed=0.25, wrap=False), 
+            PelletRow(y=3),
+            PacMan(0, 3, x_speed=0.25, wrap=False),
             Ghost(-7, 2))),
         ("Layered_PacMan",LayeredEffect(
             Layer(PelletRow(y=3),BlendMode.OVERWRITE),
@@ -88,9 +88,9 @@ def bake_all_effects(fps: float = 25, frames_to_save: int = 150):
             Layer(PacMan(0, 3, x_speed=0.25), BlendMode.OVERWRITE))),
         ("ExpandingBox", ExpandingBox(cx=8, cy=3,speed=1)),
         ("SpiralSweep", SpiralSweep(cx=8, cy=3, speed=1)),
-        ("Sparkle", Sparkle(randint(0, scrollphathd.width-1), randint(0, scrollphathd.height-1))),
+        ("Sparkle", Sparkle(randint(0, DisplayConfig.width-1), randint(0, DisplayConfig.height-1))),
         ("Comet", Comet(0, 0, dx=1, dy=1, tail_length=6, bounce=True)),
-        ("WaveRipple", WaveRipple(scrollphathd.width//2, scrollphathd.height//2, speed=0.7)),
+        ("WaveRipple", WaveRipple(DisplayConfig.width//2, DisplayConfig.height//2, speed=0.7)),
         ("ScannerSweep", ScannerSweep(horizontal=True, speed=1, trail_length=6, bounce=True)),
         ("ZigZagSweep", ZigZagSweep(speed=1, trail_length=6, bounce=True)),
         ("PulseFade", PulseFade(speed=.05, repeat=True)),

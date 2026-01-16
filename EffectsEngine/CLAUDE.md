@@ -1,0 +1,1 @@
+Claude should append all chat input and output to text to .chat_history in markdown format

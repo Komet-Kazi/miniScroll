@@ -4,7 +4,34 @@ import time
 import json
 import gzip
 import scrollphathd
-from effects import BaseEffect
+
+###------------------------------------------------------------------------------###
+# Display Configuration
+
+class DisplayConfig:
+    """
+    Global display configuration that can be overridden for different hardware.
+
+    This allows the effects engine to be hardware-agnostic while still knowing
+    the display dimensions. By default, it uses the scrollphathd dimensions,
+    but can be reconfigured for other LED matrices.
+    """
+    width: int = 17
+    height: int = 7
+
+    @classmethod
+    def set_dimensions(cls, width: int, height: int):
+        """Set custom display dimensions for non-standard hardware."""
+        cls.width = width
+        cls.height = height
+
+# Initialize from scrollphathd if available
+try:
+    DisplayConfig.width = scrollphathd.width
+    DisplayConfig.height = scrollphathd.height
+except (AttributeError, NameError):
+    # Use defaults if scrollphathd not available
+    pass
 
 ###------------------------------------------------------------------------------###
 # Helper Functions
@@ -34,7 +61,7 @@ class EffectRunner:
         fps (float): Frames per second.
         invert (bool): Whether to invert brightness values.
     """
-    def __init__(self, effect: BaseEffect, fps: float = 20, invert: bool = False):
+    def __init__(self, effect, fps: float = 20, invert: bool = False):
         self.effect = effect
         self.delay = 1.0 / fps
         self.invert = invert
@@ -77,7 +104,7 @@ class AnimationRecorder:
         effect (BaseEffect): Effect to record.
         fps (float): Playback frame rate metadata.
     """
-    def __init__(self, effect: BaseEffect, fps: float = 25):
+    def __init__(self, effect, fps: float = 25):
         self.effect = effect
         self.fps = fps
         self.frames: list[list[tuple[int, int, float]]] = []
