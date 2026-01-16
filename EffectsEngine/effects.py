@@ -14,6 +14,8 @@ if hasattr(ic, "configureOutput"):
         prefix='[effects_engine] ',
         includeContext=True,
     )
+# Uncomment to turn off debugging
+ic.disable()
 
 
 import math, collections
@@ -687,6 +689,175 @@ class SpiralSweep(BaseEffect):
     def is_done(self):
         return self.done
 
+
+###------------------------------------------------------------------------###
+# Text Display Effect
+
+class TextScroller(BaseEffect):
+    """
+    Scrolling or static text display effect.
+
+    Renders text using scrollphathd fonts and returns pixels compatible
+    with the layering system. Text can scroll horizontally, display
+    statically, or loop continuously.
+
+    This effect directly accesses font bitmap data to render characters
+    without interfering with scrollphathd's global buffer, making it
+    fully compatible with the pixel-based effects architecture.
+
+    Args:
+        text (str): The text string to display.
+        x_start (int): Starting x position (default: width, off-screen right).
+        y_pos (int): Vertical position of text baseline (default: 0).
+        speed (float): Scroll speed in pixels per frame (default: 1.0).
+                      Use 0 for static text.
+        font: scrollphathd font object (default: font5x7).
+        letter_spacing (int): Pixels between characters (default: 1).
+        brightness (float): Text brightness 0.0-1.0 (default: 1.0).
+        loop (bool): Whether to restart when scrolling completes (default: False).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+
+    Example:
+        # Scrolling text
+        text = TextScroller("HELLO WORLD", speed=0.5)
+
+        # Static text overlay
+        label = TextScroller("FPS: 60", x_start=0, y_pos=0, speed=0)
+
+        # Layered with animation
+        composite = LayeredEffect(
+            Layer(Comet(5, 3), BlendMode.MAX),
+            Layer(TextScroller("COMET", y_pos=1), BlendMode.ALPHA_HARD)
+        )
+    """
+
+    def __init__(
+        self,
+        text: str,
+        x_start: int | None = None,
+        y_pos: int = 0,
+        speed: float = 1.0,
+        font=None,
+        letter_spacing: int = 1,
+        brightness: float = 1.0,
+        loop: bool = False,
+        width=None,
+        height=None,
+    ):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+
+        self.text = text
+        self.y_pos = y_pos
+        self.speed = speed
+        self.letter_spacing = letter_spacing
+        self.brightness = brightness
+        self.loop = loop
+
+        # Default x_start to off-screen right
+        self.x_start = x_start if x_start is not None else self.width
+
+        # Set default font if none provided
+        if font is None:
+            try:
+                from scrollphathd.fonts import font5x7
+                self.font = font5x7
+            except ImportError:
+                raise ImportError("scrollphathd.fonts not available")
+        else:
+            self.font = font
+
+        # Pre-render text to pixels
+        self.text_pixels, self.text_width = self._render_from_font_data()
+
+        self.reset()
+
+    def _render_from_font_data(self):
+        """
+        Render text by directly accessing font character bitmaps.
+
+        Returns:
+            tuple: (pixels, text_width) where pixels is list of (x, y, brightness)
+                   and text_width is the total width in pixels.
+        """
+        pixels = []
+        x_offset = 0
+
+        # Access the font data dictionary
+        font_data = self.font.data if hasattr(self.font, 'data') else self.font
+
+        for char in self.text:
+            # Get character bitmap from font (fonts are indexed by ordinal)
+            try:
+                char_data = font_data[ord(char)]
+            except (KeyError, IndexError):
+                # Character not in font, skip it
+                continue
+
+            # char_data is a list of rows (horizontal strips of pixels)
+            # Each row is a list of pixel values (0 or 1, or brightness values)
+            for row_idx, row in enumerate(char_data):
+                for col_idx in range(len(row)):
+                    if row[col_idx]:  # If pixel is set
+                        pixels.append((
+                            x_offset + col_idx,
+                            row_idx,
+                            self.brightness
+                        ))
+
+            # Move to next character position
+            # Character width is the length of the first row
+            char_width = len(char_data[0]) if char_data else 0
+            x_offset += char_width + self.letter_spacing
+
+        # Total width is final offset minus the trailing letter_spacing
+        text_width = x_offset - self.letter_spacing if x_offset > 0 else 0
+
+        return pixels, text_width
+
+    def reset(self):
+        """Reset scroll position to starting point."""
+        self.scroll_offset = 0.0
+        self.done = False
+
+    def step(self):
+        """
+        Advance animation and return visible pixels for current frame.
+
+        Returns:
+            list[tuple[int, int, float]]: Pixels as (x, y, brightness) tuples.
+        """
+        if self.done:
+            return []
+
+        visible_pixels = []
+
+        for px, py, brightness in self.text_pixels:
+            # Apply scroll transformation and starting position
+            display_x = int(self.x_start + px - self.scroll_offset)
+            display_y = self.y_pos + py
+
+            # Only include pixels within the viewport
+            if 0 <= display_x < self.width and 0 <= display_y < self.height:
+                visible_pixels.append((display_x, display_y, brightness))
+
+        # Update scroll position
+        self.scroll_offset += self.speed
+
+        # Check if scrolling is complete
+        # Text is fully off-screen when scroll_offset > x_start + text_width
+        if self.speed > 0 and self.scroll_offset > self.x_start + self.text_width:
+            if self.loop:
+                self.scroll_offset = 0.0
+            else:
+                self.done = True
+
+        return visible_pixels
+
+    def is_done(self):
+        """Return True if the effect has completed (text scrolled off-screen)."""
+        return self.done
 
 ###------------------------------------------------------------------------###
 # Pac Man, Pellet, and Ghost animation and scene logic
