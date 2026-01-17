@@ -185,6 +185,133 @@ class Sparkle(BaseEffect):
         # Sparkle handles its own looping internally, never signals completion
         return False
 
+class SparkleField(BaseEffect):
+    """
+    Field of multiple sparkles distributed across the display.
+
+    Creates a shimmering starfield effect by managing multiple Sparkle
+    instances that activate at random positions. Each sparkle cycles
+    independently with its own timing, creating a natural twinkling
+    effect across the entire display.
+
+    The effect is continuous and deterministic - calling reset() will
+    produce the same sparkle pattern each time, making it suitable for
+    recording and playback.
+
+    Args:
+        density (int): Maximum number of active sparkles at once (default: 30).
+        speed_range (tuple[int, int]): (min, max) speed values for sparkles.
+            Each sparkle gets a random speed in this range on activation.
+            Default: (10, 50).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+
+    Example:
+        # Default sparkling field
+        field = SparkleField()
+
+        # Dense, fast-twinkling field
+        field = SparkleField(density=50, speed_range=(5, 20))
+
+        # Layered with other effects
+        scene = LayeredEffect(
+            Layer(WaveRipple(8, 3), BlendMode.ALPHA_SOFT),
+            Layer(SparkleField(density=20), BlendMode.ADD)
+        )
+    """
+
+    def __init__(
+        self,
+        density: int = 30,
+        speed_range: tuple[int, int] = (10, 50),
+        width=None,
+        height=None,
+    ):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+        self.density = density
+        self.speed_range = speed_range
+        self.reset()
+
+    def reset(self):
+        """
+        Reset the sparkle field to initial state.
+
+        Pre-generates a deterministic activation sequence by creating
+        a shuffled list of all pixel positions and pre-assigned speeds.
+        This ensures the effect is reproducible while appearing random.
+        """
+        import itertools
+        from random import shuffle, randint
+
+        # Create pool of all possible positions
+        all_positions = list(itertools.product(
+            range(self.width), range(self.height)
+        ))
+
+        # Shuffle positions for random activation order
+        shuffle(all_positions)
+
+        # Pre-assign speeds to each position
+        self.position_pool = [
+            (x, y, randint(self.speed_range[0], self.speed_range[1]))
+            for x, y in all_positions
+        ]
+
+        self.pool_index = 0
+        self.active_sparkles: list[Sparkle] = []
+        self.done = False
+
+    def step(self):
+        """
+        Advance animation and return visible pixels for current frame.
+
+        Manages the lifecycle of sparkles: activates new ones when under
+        the density limit, advances all active sparkles, and removes
+        completed ones.
+
+        Returns:
+            list[tuple[int, int, float]]: Combined pixels from all active sparkles.
+        """
+        # Add new sparkles if under density limit and pool not exhausted
+        while (
+            len(self.active_sparkles) < self.density
+            and self.pool_index < len(self.position_pool)
+        ):
+            x, y, speed = self.position_pool[self.pool_index]
+            sparkle = Sparkle(x, y, speed=speed)
+            self.active_sparkles.append(sparkle)
+            self.pool_index += 1
+
+        # Collect pixels from all active sparkles
+        pixels = []
+        sparkles_to_remove = []
+
+        for sparkle in self.active_sparkles:
+            sparkle_pixels = sparkle.step()
+            pixels.extend(sparkle_pixels)
+
+            # Note: Current Sparkle implementation never returns True for is_done()
+            # and resets itself internally. This check is here for future-proofing
+            # if Sparkle behavior changes to allow finite cycles.
+            if sparkle.is_done():
+                sparkles_to_remove.append(sparkle)
+
+        # Remove completed sparkles
+        for sparkle in sparkles_to_remove:
+            self.active_sparkles.remove(sparkle)
+
+        return pixels
+
+    def is_done(self):
+        """
+        Return True if the effect has completed execution.
+
+        SparkleField is a continuous effect that never completes on its own.
+        Sparkles loop indefinitely, creating a persistent starfield.
+        """
+        return False
+
 class Comet(BaseEffect):
     """
     A moving point with a fading tail, similar to a comet or tracer round.
@@ -214,7 +341,7 @@ class Comet(BaseEffect):
         Each call to `step()` returns a list of (x, y, brightness) tuples
         suitable for direct use with any LED matrix.
     """
-    def __init__(self, x, y, dx=1, dy=0, tail_length=6, bounce=True, width=None, height=None):
+    def __init__(self, x, y, dx:float=1.0, dy:float=0.0, tail_length=6, bounce=True, width=None, height=None):
         self.width = width if width is not None else DisplayConfig.width
         self.height = height if height is not None else DisplayConfig.height
         self.dx = dx
