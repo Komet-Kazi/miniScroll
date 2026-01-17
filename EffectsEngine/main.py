@@ -296,8 +296,8 @@ def example_sparkle_field_with_comet():
     print("Example 23: SparkleField + Comet")
 
     scene = LayeredEffect(
-        Layer(SparkleField(density=20, speed_range=(15, 40)), BlendMode.ALPHA_SOFT),
-        Layer(Comet(0, 0, dx=1, dy=1, tail_length=10, bounce=True), BlendMode.MAX)
+        Layer(Comet(0, 0, dx=1, dy=1, tail_length=10, bounce=True), BlendMode.OVERWRITE),
+        Layer(SparkleField(density=40, speed_range=(15, 30)), BlendMode.ADD)
     )
 
     runner = EffectRunner(scene, fps=20)
@@ -311,7 +311,7 @@ def example_text_with_sparkle_field():
     text = TextScroller("STARFIELD", y_pos=1, speed=0.4, brightness=1.0)
 
     scene = LayeredEffect(
-        Layer(SparkleField(density=25, speed_range=(10, 40)), BlendMode.ALPHA_SOFT),
+        Layer(SparkleField(density=40, speed_range=(15, 30)), BlendMode.MAX),
         Layer(text, BlendMode.MAX)
     )
 
@@ -327,7 +327,7 @@ def example_text_with_wave():
     wave = WaveRipple(cx=8, cy=3, speed=0.5)
 
     scene = LayeredEffect(
-        Layer(wave, BlendMode.ALPHA_SOFT),
+        Layer(wave, BlendMode.MAX),
         Layer(text, BlendMode.MAX)
     )
 
@@ -345,7 +345,7 @@ def example_text_with_scanner():
     scanner = ScannerSweep(horizontal=False, speed=1, trail_length=4, bounce=True)
 
     scene = LayeredEffect(
-        Layer(scanner, BlendMode.ALPHA_SOFT),
+        Layer(scanner, BlendMode.MAX),
         Layer(text, BlendMode.MAX)
     )
 
@@ -456,10 +456,10 @@ def run_all_examples():
         # Layered effects
         example_layered_waves,
         example_layered_comets,
-        example_sparkle_field_with_comet, # no sparkle field
-        example_text_with_sparkle_field, # no sparkle field
-        example_text_with_wave, # No wave
-        example_text_with_scanner, # No Scan
+        example_sparkle_field_with_comet,
+        example_text_with_sparkle_field,
+        example_text_with_wave,
+        example_text_with_scanner,
         example_complex_layer,
         example_pacman_layered,
 

@@ -90,6 +90,16 @@ runner.run(frames=150)  # Run for specific frame count
 
 When creating or modifying effects, follow the **LED_Effect_style_guide.md** specification:
 
+### Workflow for Adding New Effects
+When adding a new effect class to `effects.py`:
+1. **Create the effect class** following the BaseEffect interface
+2. **Update CLAUDE.md** to add the effect to the "Available Effects" list
+3. **Update main.py** to demonstrate the new effect:
+   - Add example function(s) following the `example_<effect_name>()` pattern (see text_examples.py format)
+   - Place the new example as close to the top of the demo list as reasonable
+   - Add the function to the `examples` list in `run_all_examples()`
+   - Include at least one layered example if the effect works well with others
+
 ### Required Behaviors
 1. **Subclass BaseEffect** and implement step(), reset(), is_done()
 2. **Initialize all state in reset()**, not __init__
