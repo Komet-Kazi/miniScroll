@@ -56,13 +56,13 @@ runner.run(frames=150)  # Run for specific frame count
 
 | File | Purpose | Size |
 |------|---------|------|
-| **effects.py** | All 23 effect implementations | ~1300 lines |
+| **effects.py** | All 24 effect implementations | ~1500 lines |
 | **runner.py** | EffectRunner (real-time) + AnimationRecorder (pre-baking) | ~150 lines |
 | **main.py** | Demo entry point with demo functions | ~200 lines |
 | **test_text_simple.py** | Unit tests for TextScroller | ~300 lines |
 | **text_examples.py** | TextScroller usage examples | ~250 lines |
 
-## Available Effects (23 Classes)
+## Available Effects (24 Classes)
 
 ### Core Visual Effects
 - **Sparkle**: Random bright pixel
@@ -77,6 +77,7 @@ runner.run(frames=150)  # Run for specific frame count
 
 ### Text Effects
 - **TextScroller**: Scrolling, static, or looping text with font support
+- **TextRevealEffect**: Progressive pixel-by-pixel text reveal as animation passes over it
 
 ### Game-Like Effects
 - **PacMan**, **Ghost**, **PelletRow**: Animated game characters

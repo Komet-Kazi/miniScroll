@@ -969,6 +969,205 @@ class TextScroller(BaseEffect):
         """Return True if the effect has completed (text scrolled off-screen)."""
         return self.done
 
+
+class TextRevealEffect(BaseEffect):
+    """
+    Progressively reveals text pixel-by-pixel as another effect passes over it.
+
+    This effect combines a static text display with a "revealer" animation
+    (e.g., Comet, ScannerSweep). As the revealer passes over text pixels,
+    they light up and stay permanently visible. The revealer continues
+    animating after revealing all text.
+
+    Each individual pixel of the text is revealed only when the revealer
+    animation touches that specific coordinate. For effects like Comet,
+    both the head and tail can reveal pixels as they pass over text.
+
+    Args:
+        text (str): Text string to reveal.
+        revealer (BaseEffect): Animation that reveals text (e.g., Comet, ScannerSweep).
+        x_pos (int): Text x position on display (default: 0).
+        y_pos (int): Text y position on display (default: 0).
+        font: scrollphathd font object (default: font5x7).
+        letter_spacing (int): Pixels between characters (default: 1).
+        brightness (float): Text brightness once revealed, 0.0-1.0 (default: 1.0).
+        show_revealer (bool): Show revealer animation alongside revealed text (default: True).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+
+    Example:
+        # Single comet reveals text
+        comet = Comet(0, 0, dx=1, dy=1, tail_length=6, bounce=True)
+        text_reveal = TextRevealEffect("HELLO", comet, x_pos=2, y_pos=2)
+
+        # Scanner wipes in text line-by-line
+        scanner = ScannerSweep(horizontal=False, speed=1, trail_length=4, bounce=True)
+        text_reveal = TextRevealEffect("SCAN", scanner, x_pos=1, y_pos=1)
+
+        # Multiple comets as revealer
+        from scrollphathd.fonts import font3x5
+        comet1 = Comet(0, 0, dx=1, dy=0.5, tail_length=4, bounce=True)
+        comet2 = Comet(16, 6, dx=-0.8, dy=-0.6, tail_length=5, bounce=True)
+        multi_revealer = LayeredEffect(
+            Layer(comet1, BlendMode.MAX),
+            Layer(comet2, BlendMode.MAX)
+        )
+        text_reveal = TextRevealEffect(
+            "MULTI",
+            multi_revealer,
+            x_pos=4,
+            y_pos=2,
+            font=font3x5,
+            show_revealer=True
+        )
+
+    Behavior:
+        - Text is static (non-scrolling)
+        - Revealer animation loops/bounces continuously
+        - Each text pixel reveals on first touch (one-touch reveal)
+        - Revealed pixels stay at full configured brightness
+        - Revealer brightness does not affect revealed text brightness
+    """
+
+    def __init__(
+        self,
+        text: str,
+        revealer,
+        x_pos: int = 0,
+        y_pos: int = 0,
+        font=None,
+        letter_spacing: int = 1,
+        brightness: float = 1.0,
+        show_revealer: bool = True,
+        width=None,
+        height=None,
+    ):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+
+        self.text = text
+        self.revealer = revealer
+        self.x_pos = x_pos
+        self.y_pos = y_pos
+        self.show_revealer = show_revealer
+
+        # Set default font if none provided
+        if font is None:
+            try:
+                from scrollphathd.fonts import font5x7
+                font = font5x7
+            except ImportError:
+                raise ImportError("scrollphathd.fonts not available")
+
+        # Create static text scroller (speed=0 for non-scrolling)
+        self.text_scroller = TextScroller(
+            text=text,
+            x_start=x_pos,
+            y_pos=y_pos,
+            speed=0,  # Static text
+            font=font,
+            letter_spacing=letter_spacing,
+            brightness=brightness,
+            loop=False,
+            width=self.width,
+            height=self.height,
+        )
+
+        self.reset()
+
+    def reset(self):
+        """
+        Reset the effect to its initial state.
+
+        Clears all revealed pixels, resets both the text and revealer,
+        and pre-computes text pixel coordinates for efficient lookup.
+        """
+        self.text_scroller.reset()
+        self.revealer.reset()
+
+        # Clear revealed pixel tracking
+        self.revealed_pixels = set()
+
+        # Pre-compute all text pixel coordinates and brightness values
+        # TextScroller with speed=0 produces identical output every frame
+        # Store as dict for O(1) lookup: {(x, y): brightness}
+        self.all_text_pixels = {
+            (x, y): b
+            for x, y, b in self.text_scroller.step()
+        }
+
+        self.done = False
+
+    def step(self):
+        """
+        Advance animation one frame and return visible pixels.
+
+        Gets revealer pixels, updates revealed set with newly touched
+        text pixels, and returns only revealed text pixels. Optionally
+        includes revealer pixels in output.
+
+        Returns:
+            list[tuple[int, int, float]]: Pixels as (x, y, brightness) tuples.
+        """
+        if self.done:
+            return []
+
+        # Get revealer pixels this frame (includes head + tail for effects like Comet)
+        revealer_pixels = self.revealer.step()
+        revealer_coords = {(x, y) for x, y, _ in revealer_pixels}
+
+        # Find which text pixels are touched by revealer this frame
+        # Set intersection: only coordinates that exist in BOTH sets
+        newly_touched = revealer_coords & self.all_text_pixels.keys()
+
+        # Permanently add to revealed set (accumulates across all frames)
+        self.revealed_pixels.update(newly_touched)
+
+        # Build revealed text pixels list
+        # Each revealed pixel shows at full text brightness (not revealer brightness)
+        revealed_text_pixels = [
+            (x, y, brightness)
+            for (x, y), brightness in self.all_text_pixels.items()
+            if (x, y) in self.revealed_pixels
+        ]
+
+        # Merge revealer and revealed text using MAX blending to prevent dimming
+        if self.show_revealer:
+            # Use dictionary to track max brightness per coordinate
+            pixel_dict = {}
+
+            # Add revealed text first
+            for x, y, b in revealed_text_pixels:
+                pixel_dict[(x, y)] = b
+
+            # Add revealer pixels, keeping max brightness when coordinates overlap
+            for x, y, b in revealer_pixels:
+                coord = (x, y)
+                if coord in pixel_dict:
+                    pixel_dict[coord] = max(pixel_dict[coord], b)
+                else:
+                    pixel_dict[coord] = b
+
+            # Convert back to list
+            result = [(x, y, b) for (x, y), b in pixel_dict.items()]
+        else:
+            result = revealed_text_pixels
+
+        return result
+
+    def is_done(self):
+        """
+        Return True if the effect has completed.
+
+        This effect never completes - the revealer continues looping
+        after all text is revealed.
+
+        Returns:
+            bool: Always False (effect loops forever).
+        """
+        return False
+
+
 ###------------------------------------------------------------------------###
 # Pac Man, Pellet, and Ghost animation and scene logic
 class PacMan(BaseEffect):

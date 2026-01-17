@@ -2,7 +2,7 @@
 """
 EffectsEngine - Usage Examples
 
-Demonstrates all 23 effects available in the EffectsEngine.
+Demonstrates all 24 effects available in the EffectsEngine.
 Each example shows how to configure and run individual effects
 or combine them using LayeredEffect with blend modes.
 
@@ -13,7 +13,7 @@ import scrollphathd
 from effects import (
     Sparkle, SparkleField, Comet, WaveRipple, ExpandingBox,
     SpiralSweep, ScannerSweep, ZigZagSweep, PulseFade,
-    TextScroller, PacMan, Ghost, PelletRow, PacManScene,
+    TextScroller, TextRevealEffect, PacMan, Ghost, PelletRow, PacManScene,
     LayeredEffect, Layer, BlendMode, BakedAnimation
 )
 from runner import EffectRunner, AnimationRecorder, DisplayConfig
@@ -196,7 +196,7 @@ def example_text_static():
     """Example 15: Static text label."""
     print("Example 15: Static Text")
 
-    text = TextScroller("READY", x_start=0, y_pos=1, speed=0)
+    text = TextScroller("READY", speed=0)
 
     runner = EffectRunner(text, fps=20)
     runner.run(frames=60)
@@ -212,13 +212,86 @@ def example_text_looping():
     runner.run(frames=200)
 
 
+def example_text_reveal_comet():
+    """Example 17: Text revealed pixel-by-pixel by bouncing comet."""
+    print("Example 17: Text Reveal - Comet")
+
+    # Create bouncing comet that will reveal the text
+    comet = Comet(x=0, y=0, dx=1, dy=1, tail_length=6, bounce=True)
+
+    # Text reveal effect - shows revealer and revealed text
+    text_reveal = TextRevealEffect(
+        text="REVEAL",
+        revealer=comet,
+        x_pos=2,
+        y_pos=2,
+        brightness=1.0,
+        show_revealer=True
+    )
+
+    runner = EffectRunner(text_reveal, fps=20)
+    runner.run(frames=250)
+
+
+def example_text_reveal_scanner():
+    """Example 18: Text revealed line-by-line by vertical scanner."""
+    print("Example 18: Text Reveal - Scanner")
+
+    # Create vertical scanner that will reveal the text
+    scanner = ScannerSweep(horizontal=False, speed=1, trail_length=4, bounce=True)
+
+    # Text reveal effect
+    text_reveal = TextRevealEffect(
+        text="SCAN",
+        revealer=scanner,
+        x_pos=1,
+        y_pos=1,
+        brightness=1.0,
+        show_revealer=True
+    )
+
+    runner = EffectRunner(text_reveal, fps=20)
+    runner.run(frames=200)
+
+
+def example_text_reveal_multi_comet():
+    """Example 19: Text revealed by multiple comets working together."""
+    print("Example 19: Text Reveal - Multi Comet")
+
+    from scrollphathd.fonts import font3x5
+
+    # Create multiple comets as the revealer
+    comet1 = Comet(0, 0, dx=1, dy=0.5, tail_length=4, bounce=True)
+    comet2 = Comet(16, 6, dx=-0.8, dy=-0.6, tail_length=5, bounce=True)
+
+    # Combine comets into one revealer effect
+    multi_revealer = LayeredEffect(
+        Layer(comet1, BlendMode.MAX),
+        Layer(comet2, BlendMode.MAX)
+    )
+
+    # Text reveal with multiple comets
+    text_reveal = TextRevealEffect(
+        text="KiKi",
+        revealer=multi_revealer,
+        x_pos=2,
+        y_pos=2,
+        font=font3x5,
+        brightness=1.0,
+        show_revealer=True
+    )
+
+    runner = EffectRunner(text_reveal, fps=20)
+    runner.run(frames=300)
+
+
 ###############################################################################
 # GAME EFFECTS
 ###############################################################################
 
 def example_pacman():
-    """Example 17: Animated Pac-Man character."""
-    print("Example 17: Pac-Man")
+    """Example 20: Animated Pac-Man character."""
+    print("Example 20: Pac-Man")
 
     pacman = PacMan(x=0, y=3, x_speed=0.25, wrap=False)
 
@@ -227,8 +300,8 @@ def example_pacman():
 
 
 def example_ghost():
-    """Example 18: Animated ghost character."""
-    print("Example 18: Ghost")
+    """Example 21: Animated ghost character."""
+    print("Example 21: Ghost")
 
     ghost = Ghost(x=-7, y=2, x_speed=0.2)
 
@@ -237,8 +310,8 @@ def example_ghost():
 
 
 def example_pellet_row():
-    """Example 19: Row of pellets."""
-    print("Example 19: Pellet Row")
+    """Example 22: Row of pellets."""
+    print("Example 22: Pellet Row")
 
     pellets = PelletRow(y=3)
 
@@ -247,8 +320,8 @@ def example_pellet_row():
 
 
 def example_pacman_scene():
-    """Example 20: Complete Pac-Man scene with pellets and ghost."""
-    print("Example 20: Pac-Man Scene")
+    """Example 23: Complete Pac-Man scene with pellets and ghost."""
+    print("Example 23: Pac-Man Scene")
 
     scene = PacManScene(
         pellets=PelletRow(y=3),
@@ -265,8 +338,8 @@ def example_pacman_scene():
 ###############################################################################
 
 def example_layered_waves():
-    """Example 21: Multiple overlapping wave ripples."""
-    print("Example 21: Layered Waves")
+    """Example 24: Multiple overlapping wave ripples."""
+    print("Example 24: Layered Waves")
 
     scene = LayeredEffect(
         Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
@@ -279,8 +352,8 @@ def example_layered_waves():
 
 
 def example_layered_comets():
-    """Example 22: Multiple comets with different blend modes."""
-    print("Example 22: Layered Comets")
+    """Example 25: Multiple comets with different blend modes."""
+    print("Example 25: Layered Comets")
 
     scene = LayeredEffect(
         Layer(Comet(0, 0, dx=1, dy=1, tail_length=8, bounce=True), BlendMode.MAX),
@@ -292,8 +365,8 @@ def example_layered_comets():
 
 
 def example_sparkle_field_with_comet():
-    """Example 23: Sparkle field background with comet overlay."""
-    print("Example 23: SparkleField + Comet")
+    """Example 26: Sparkle field background with comet overlay."""
+    print("Example 26: SparkleField + Comet")
 
     scene = LayeredEffect(
         Layer(Comet(0, 0, dx=1, dy=1, tail_length=10, bounce=True), BlendMode.OVERWRITE),
@@ -305,8 +378,8 @@ def example_sparkle_field_with_comet():
 
 
 def example_text_with_sparkle_field():
-    """Example 24: Text scrolling over sparkle field."""
-    print("Example 24: Text + SparkleField")
+    """Example 27: Text scrolling over sparkle field."""
+    print("Example 27: Text + SparkleField")
 
     text = TextScroller("STARFIELD", y_pos=1, speed=0.4, brightness=1.0)
 
@@ -320,8 +393,8 @@ def example_text_with_sparkle_field():
 
 
 def example_text_with_wave():
-    """Example 25: Text with expanding wave background."""
-    print("Example 25: Text + Wave")
+    """Example 28: Text with expanding wave background."""
+    print("Example 28: Text + Wave")
 
     text = TextScroller("WAVES", y_pos=1, speed=0.3)
     wave = WaveRipple(cx=8, cy=3, speed=0.5)
@@ -336,8 +409,8 @@ def example_text_with_wave():
 
 
 def example_text_with_scanner():
-    """Example 26: Text with scanner sweep."""
-    print("Example 26: Text + Scanner")
+    """Example 29: Text with scanner sweep."""
+    print("Example 29: Text + Scanner")
 
     from scrollphathd.fonts import font3x5
 
@@ -354,8 +427,8 @@ def example_text_with_scanner():
 
 
 def example_complex_layer():
-    """Example 27: Complex multi-layer composition."""
-    print("Example 27: Complex Layering")
+    """Example 30: Complex multi-layer composition."""
+    print("Example 30: Complex Layering")
 
     scene = LayeredEffect(
         Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
@@ -446,6 +519,9 @@ def run_all_examples():
         example_text_scroll,
         example_text_static,
         example_text_looping,
+        example_text_reveal_comet,
+        example_text_reveal_scanner,
+        example_text_reveal_multi_comet,
 
         # Game effects
         example_pacman,
@@ -553,13 +629,14 @@ if __name__ == '__main__':
         scrollphathd.rotate(degrees=180)
 
         # Run all examples in sequence
-        run_all_examples()
+        #run_all_examples()
 
         # Or uncomment individual examples to run them:
         # example_sparkle_field()
         # example_comet()
         # example_text_with_sparkle_field()
         # example_complex_layer()
+        example_text_reveal_multi_comet()
 
         # Or run the legacy demo function:
         # demo_all_effects()
