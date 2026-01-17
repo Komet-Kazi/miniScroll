@@ -182,8 +182,8 @@ class Sparkle(BaseEffect):
         return [(self.x, self.y, brightness)]
 
     def is_done(self):
-        # """Return True when the sparkle cycle finishes (brightness == 0)."""
-        return self.step_count > self.max_steps
+        # Sparkle handles its own looping internally, never signals completion
+        return False
 
 class Comet(BaseEffect):
     """
@@ -305,7 +305,6 @@ class WaveRipple(BaseEffect):
 
     def reset(self):
         self.radius = 0.0
-        self.done = False
 
         w, h = self.width, self.height
 
@@ -315,9 +314,6 @@ class WaveRipple(BaseEffect):
             self.max_radius = math.hypot(w, h)
 
     def step(self):
-        if self.done:
-            return []
-
         pixels = []
         w, h = self.width, self.height
 
@@ -338,14 +334,14 @@ class WaveRipple(BaseEffect):
 
         self.radius += self.speed
 
+        # Loop the ripple when it reaches max radius
         if round(self.radius) > round(self.max_radius):
-            ic("Ripple done",self.radius)
-            self.done = True
+            self.radius = 0.0
 
         return pixels
 
     def is_done(self):
-        return self.done
+        return False
 
 class ExpandingBox(BaseEffect):
     """
@@ -371,7 +367,6 @@ class ExpandingBox(BaseEffect):
 
     def reset(self):
         self.radius = 0.0
-        self.done = False
 
         w, h = self.width, self.height
 
@@ -381,9 +376,6 @@ class ExpandingBox(BaseEffect):
             self.max_radius = math.hypot(w, h)
 
     def step(self):
-        if self.done:
-            return []
-
         pixels = []
         r = self.radius
 
@@ -397,13 +389,14 @@ class ExpandingBox(BaseEffect):
 
         self.radius += self.speed
 
-        if self.radius > self.max_radius:
-            self.done = True
+        # Loop the ripple when it reaches max radius
+        if round(self.radius) > round(self.max_radius):
+            self.radius = 0.0
 
         return pixels
 
     def is_done(self):
-        return self.done
+        return False
     
 class ScannerSweep(BaseEffect):
     """
@@ -432,12 +425,9 @@ class ScannerSweep(BaseEffect):
         self.pos = 0
         self.x_direction = 1
         self.trail = collections.deque(maxlen=self.trail_length)
-        self.done = False
+
 
     def step(self):
-        if self.done:
-            return []
-
         w, h = self.width, self.height
 
         # move scanner
@@ -471,7 +461,7 @@ class ScannerSweep(BaseEffect):
         return pixels
 
     def is_done(self):
-        return self.done
+        return False
 
 class ZigZagSweep(BaseEffect):
     """
@@ -616,12 +606,9 @@ class PulseFade(BaseEffect):
 
     def reset(self):
         self.phase = 0.0
-        self.done = False
+
 
     def step(self):
-        if self.done:
-            return []
-
         brightness = (math.sin(self.phase) + 1.0) / 2.0
         self.phase += self.speed
 
@@ -639,7 +626,7 @@ class PulseFade(BaseEffect):
         return pixels
 
     def is_done(self):
-        return self.done
+        return False
 
 #TODO: Adjust. Unimpressive as a single point moving. maybe add a tail or fill in as it goes
 class SpiralSweep(BaseEffect):
@@ -665,13 +652,9 @@ class SpiralSweep(BaseEffect):
     def reset(self):
         self.angle = 0.0
         self.radius = 0.0
-        self.done = False
         self.max_radius = math.hypot(self.width, self.height)
 
     def step(self):
-        if self.done:
-            return []
-
         x = int(round(self.cx + math.cos(self.angle) * self.radius))
         y = int(round(self.cy + math.sin(self.angle) * self.radius))
 
@@ -687,7 +670,7 @@ class SpiralSweep(BaseEffect):
         return []
 
     def is_done(self):
-        return self.done
+        return False
 
 
 ###------------------------------------------------------------------------###

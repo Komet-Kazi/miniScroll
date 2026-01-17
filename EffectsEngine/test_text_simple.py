@@ -163,7 +163,7 @@ def test_layering_composition():
     print("\n=== Test 7: Layering with Effects ===")
 
     text = TextScroller("T", x_start=5, y_pos=2, speed=0)
-    comet = Comet(x=0, y=5, dx=0.5, dy=0, tail_length=4)
+    comet = Comet(x=0, y=5, dx=1, dy=0, tail_length=4)
 
     composite = LayeredEffect(
         Layer(comet, BlendMode.MAX),
