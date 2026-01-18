@@ -18,6 +18,7 @@ class BaseEffect:
 ```
 
 Effects are:
+
 - **Pure animations**: Deterministic, stateless functions that emit pixel coordinates
 - **Hardware-agnostic**: No direct hardware calls (use DisplayConfig for dimensions)
 - **Composable**: Can be layered using `LayeredEffect` with `BlendMode` (MAX, ADD, ALPHA_SOFT, ALPHA_HARD, OVERWRITE)
@@ -55,7 +56,7 @@ runner.run(frames=150)  # Run for specific frame count
 ## File Structure
 
 | File | Purpose | Size |
-|------|---------|------|
+| ------ | --------- | ------ |
 | **effects.py** | All 24 effect implementations | ~1500 lines |
 | **runner.py** | EffectRunner (real-time) + AnimationRecorder (pre-baking) | ~150 lines |
 | **main.py** | Demo entry point with demo functions | ~200 lines |
@@ -65,6 +66,7 @@ runner.run(frames=150)  # Run for specific frame count
 ## Available Effects (24 Classes)
 
 ### Core Visual Effects
+
 - **Sparkle**: Random bright pixel
 - **SparkleField**: Multiple sparkles distributed across the display
 - **Comet**: Moving point with trail (supports bounce)
@@ -76,14 +78,17 @@ runner.run(frames=150)  # Run for specific frame count
 - **PulseFade**: Global brightness pulse
 
 ### Text Effects
+
 - **TextScroller**: Scrolling, static, or looping text with font support
 - **TextRevealEffect**: Progressive pixel-by-pixel text reveal as animation passes over it
 
 ### Game-Like Effects
+
 - **PacMan**, **Ghost**, **PelletRow**: Animated game characters
 - **PacManScene**: Pre-composed scene combining above
 
-### Composite Effects
+### Composite
+
 - **LayeredEffect**: Combines multiple effects with blend modes
 - **BakedAnimation**: Plays pre-recorded animations from disk
 
@@ -92,7 +97,9 @@ runner.run(frames=150)  # Run for specific frame count
 When creating or modifying effects, follow the **LED_Effect_style_guide.md** specification:
 
 ### Workflow for Adding New Effects
+
 When adding a new effect class to `effects.py`:
+
 1. **Create the effect class** following the BaseEffect interface
 2. **Update CLAUDE.md** to add the effect to the "Available Effects" list
 3. **Update main.py** to demonstrate the new effect:
@@ -102,13 +109,15 @@ When adding a new effect class to `effects.py`:
    - Include at least one layered example if the effect works well with others
 
 ### Required Behaviors
+
 1. **Subclass BaseEffect** and implement step(), reset(), is_done()
-2. **Initialize all state in reset()**, not __init__
+2. **Initialize all state in reset()**, not `__init__`
 3. **Return sparse pixels**: Only emit `(x, y, brightness)` tuples for visible pixels
 4. **Use normalized brightness**: 0.0 to 1.0 (clamping happens in renderer)
 5. **No hardware calls**: Use DisplayConfig for dimensions (default: 17×7)
 
 ### Forbidden Behaviors
+
 - ❌ No randomness in step() (only in reset())
 - ❌ No time measurement or sleep() calls
 - ❌ No caching of display dimensions
@@ -116,6 +125,7 @@ When adding a new effect class to `effects.py`:
 - ❌ No clearing or overwriting pixels (layering is external)
 
 ### Effect Categories
+
 - **Point Effects**: Sparkle, Comet head
 - **Sweep Effects**: Scanner, ZigZag, Spiral
 - **Field Effects**: Ripples, Waves, Noise
