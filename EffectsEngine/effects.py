@@ -517,7 +517,7 @@ class ExpandingBox(BaseEffect):
         self.radius += self.speed
 
         # Loop the ripple when it reaches max radius
-        if round(self.radius) > round(self.max_radius):
+        if self.radius > self.max_radius:
             self.radius = 0.0
 
         return pixels

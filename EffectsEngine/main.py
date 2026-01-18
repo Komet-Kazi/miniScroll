@@ -632,11 +632,12 @@ if __name__ == '__main__':
         #run_all_examples()
 
         # Or uncomment individual examples to run them:
+        example_expanding_box()
         # example_sparkle_field()
         # example_comet()
         # example_text_with_sparkle_field()
         # example_complex_layer()
-        example_text_reveal_multi_comet()
+        # example_text_reveal_multi_comet()
 
         # Or run the legacy demo function:
         # demo_all_effects()
