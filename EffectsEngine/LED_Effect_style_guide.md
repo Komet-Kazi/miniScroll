@@ -1,6 +1,6 @@
 # LED Effect Style Guide
 
-*(Formal Specification v1.0)*
+## (Formal Specification v1.0)
 
 ## 1. Core Philosophy
 
@@ -22,12 +22,12 @@ Effects describe *what should be visible*, not *how it is displayed.*
 
 All effects *must* subclass `BaseEffect`.
 
-```python
+    ```python
 class BaseEffect:
     def step(self) -> list[tuple[int, int, float]]
     def reset(self) -> None
     def is_done(self) -> bool
-```
+    ```
 
 ### 2.1 step() (REQUIRED)
 
@@ -47,9 +47,9 @@ Rules
 
 *Return Format:*
 
-```python
+    ```python
 (x: int, y: int, brightness: float)
-```
+    ```
 
     `x`, `y` are *logical matrix coordinates*
 
@@ -99,11 +99,11 @@ The constructor may:
 
     Call `reset()`
 
-```python
+    ```python
 def __init__(self, speed=1.0):
     self.speed = speed
     self.reset()
-```
+    ```
 
 ### 3.2 Forbidden Responsibilities
 
@@ -118,30 +118,29 @@ def __init__(self, speed=1.0):
 
 Each effect should explicitly track:
 
-| *State Type* | *Examples*|
-|-|-|
-| Spatial  | `x`, `y`, `radius`            |
+| *State Type* | *Examples* |
+| - | - |
+| Spatial | `x`, `y`, `radius` |
 | Temporal | `step_count`, `time`, `phase` |
-| Memory   | `tail`, `history`, `buffer`   |
-| Control  | `done`, `direction`           |
+| Memory | `tail`, `history`, `buffer` |
+| Control | `done`, `direction` |
 
 ### 4.2 Reset Discipline
 
 Every mutable attribute must be initialized in *reset()*.
 
-*Bad*
+#### Bad
 
-```python
+    ```python
 self.pos += 1  # uninitialized
-```
+    ```
 
-*Good*
+#### Good
 
-```python
+    ```python
 def reset(self):
     self.pos = 0
-```
-
+    ```
 
 ## 5. Spatial Rules (Matrix Independence)
 
@@ -196,7 +195,6 @@ Bad
 for x in range(w):
     for y in range(h):
         yield (x, y, 0)
-
 
 Good
 
@@ -334,7 +332,6 @@ Effects should be written as if:
 
 matrix.width
 matrix.height
-
 
 …will be injected later.
 
