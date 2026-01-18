@@ -292,9 +292,9 @@ def example_text_wave():
     wave = TextWaveEffect(
         "WAVE",
         speed=0.5,
-        wave_speed=0.2,
-        wave_amplitude=2.0,
-        wave_length=8.0
+        wave_speed=0.1,
+        wave_amplitude=1.0,
+        wave_length=12.0
     )
 
     runner = EffectRunner(wave, fps=20)
@@ -310,9 +310,9 @@ def example_text_wave_static():
         x_start=0,
         y_pos=1,
         speed=0,
-        wave_speed=0.15,
-        wave_amplitude=1.5,
-        wave_length=10.0
+        wave_speed=0.08,
+        wave_amplitude=1.0,
+        wave_length=14.0
     )
 
     runner = EffectRunner(wave, fps=20)
@@ -329,9 +329,9 @@ def example_text_wave_layered():
         "STARS",
         y_pos=1,
         speed=0.4,
-        wave_speed=0.18,
-        wave_amplitude=1.5,
-        wave_length=8.0,
+        wave_speed=0.09,
+        wave_amplitude=0.8,
+        wave_length=12.0,
         font=font3x5,
         brightness=1.0
     )

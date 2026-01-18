@@ -1185,10 +1185,12 @@ class TextWaveEffect(BaseEffect):
         x_start (int | None): Starting x position (None = off-screen right for scrolling).
         y_pos (int): Base vertical position of text (default: 0).
         speed (float): Horizontal scroll speed in pixels/frame (0 = static, default: 1.0).
-        wave_speed (float): Wave animation speed (radians per frame, default: 0.2).
-        wave_amplitude (float): Vertical oscillation range in pixels (default: 2.0).
-            Recommended range: 1.0-2.5 for 7-pixel high displays.
-        wave_length (float): Wave period - pixels between wave peaks (default: 8.0).
+        wave_speed (float): Wave animation speed (radians per frame, default: 0.08).
+            Lower values create slower, more subtle motion.
+        wave_amplitude (float): Vertical oscillation range in pixels (default: 1.0).
+            Recommended range: 0.5-2.0 for readable text on 7-pixel displays.
+        wave_length (float): Wave period - pixels between wave peaks (default: 12.0).
+            Longer wavelengths create smoother, more gradual waves.
         font: scrollphathd font object (default: font5x7).
         letter_spacing (int): Pixels between characters (default: 1).
         brightness (float): Text brightness 0.0-1.0 (default: 1.0).
@@ -1197,17 +1199,20 @@ class TextWaveEffect(BaseEffect):
         height (int | None): Display height (None = use DisplayConfig).
 
     Example:
-        # Basic scrolling wave text
-        wave = TextWaveEffect("WAVE", wave_amplitude=2.0, wave_length=8.0)
+        # Basic scrolling wave text (uses subtle defaults)
+        wave = TextWaveEffect("WAVE")
 
         # Static waving text
-        static = TextWaveEffect("HELLO", x_start=0, speed=0, wave_speed=0.15)
+        static = TextWaveEffect("HELLO", x_start=0, speed=0)
+
+        # More pronounced wave for visual effect
+        dramatic = TextWaveEffect("DRAMATIC", wave_amplitude=2.0, wave_speed=0.15)
 
         # Layered with background effect
         from scrollphathd.fonts import font3x5
         scene = LayeredEffect(
             Layer(SparkleField(density=30), BlendMode.MAX),
-            Layer(TextWaveEffect("STARS", y_pos=1, wave_amplitude=1.5, font=font3x5), BlendMode.MAX)
+            Layer(TextWaveEffect("STARS", y_pos=1, font=font3x5), BlendMode.MAX)
         )
 
     Behavior:
@@ -1224,9 +1229,9 @@ class TextWaveEffect(BaseEffect):
         x_start: int | None = None,
         y_pos: int = 0,
         speed: float = 1.0,
-        wave_speed: float = 0.2,
-        wave_amplitude: float = 2.0,
-        wave_length: float = 8.0,
+        wave_speed: float = 0.08,
+        wave_amplitude: float = 1.0,
+        wave_length: float = 12.0,
         font=None,
         letter_spacing: int = 1,
         brightness: float = 1.0,

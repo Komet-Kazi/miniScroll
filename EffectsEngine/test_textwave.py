@@ -14,9 +14,9 @@ def test_basic_wave():
     wave = TextWaveEffect(
         "WAVE",
         speed=0.5,
-        wave_speed=0.2,
-        wave_amplitude=2.0,
-        wave_length=8.0
+        wave_speed=0.1,
+        wave_amplitude=1.0,
+        wave_length=12.0
     )
 
     print(f"  Created effect: {wave}")
