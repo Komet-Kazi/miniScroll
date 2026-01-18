@@ -63,7 +63,7 @@ runner.run(frames=150)  # Run for specific frame count
 | **test_text_simple.py** | Unit tests for TextScroller | ~300 lines |
 | **text_examples.py** | TextScroller usage examples | ~250 lines |
 
-## Available Effects (24 Classes)
+## Available Effects (25 Classes)
 
 ### Core Visual Effects
 
@@ -81,6 +81,7 @@ runner.run(frames=150)  # Run for specific frame count
 
 - **TextScroller**: Scrolling, static, or looping text with font support
 - **TextRevealEffect**: Progressive pixel-by-pixel text reveal as animation passes over it
+- **TextWaveEffect**: Animated text with vertical wave oscillation
 
 ### Game-Like Effects
 
@@ -223,6 +224,7 @@ scene = LayeredEffect(Layer(line1, BlendMode.MAX), Layer(line2, BlendMode.MAX))
 - **LED_Effect_style_guide.md**: Formal architecture specification (15 sections, ~360 lines)
 - **TEXT_SCROLLER_README.md**: Complete TextScroller documentation (~385 lines)
 - **scroll-phat-hd-repomix.md**: Hardware library reference
+- **C:\Users\levit\PyProjects\miniScroll\Examples**: Directory containing additional examples of using the scrollphathd library
 
 ## Python Development Rules
 

@@ -13,7 +13,7 @@ import scrollphathd
 from effects import (
     Sparkle, SparkleField, Comet, WaveRipple, ExpandingBox,
     SpiralSweep, ScannerSweep, ZigZagSweep, PulseFade,
-    TextScroller, TextRevealEffect, PacMan, Ghost, PelletRow, PacManScene,
+    TextScroller, TextRevealEffect, TextWaveEffect, PacMan, Ghost, PelletRow, PacManScene,
     LayeredEffect, Layer, BlendMode, BakedAnimation
 )
 from runner import EffectRunner, AnimationRecorder, DisplayConfig
@@ -285,13 +285,73 @@ def example_text_reveal_multi_comet():
     runner.run(frames=300)
 
 
+def example_text_wave():
+    """Example 20: Scrolling text with wave animation."""
+    print("Example 20: Text Wave - Scrolling")
+
+    wave = TextWaveEffect(
+        "WAVE",
+        speed=0.5,
+        wave_speed=0.2,
+        wave_amplitude=2.0,
+        wave_length=8.0
+    )
+
+    runner = EffectRunner(wave, fps=20)
+    runner.run(frames=200)
+
+
+def example_text_wave_static():
+    """Example 21: Static text with wave animation."""
+    print("Example 21: Text Wave - Static")
+
+    wave = TextWaveEffect(
+        "HELLO",
+        x_start=0,
+        y_pos=1,
+        speed=0,
+        wave_speed=0.15,
+        wave_amplitude=1.5,
+        wave_length=10.0
+    )
+
+    runner = EffectRunner(wave, fps=20)
+    runner.run(frames=150)
+
+
+def example_text_wave_layered():
+    """Example 22: Wave text layered over sparkle field."""
+    print("Example 22: Text Wave - Layered")
+
+    from scrollphathd.fonts import font3x5
+
+    wave_text = TextWaveEffect(
+        "STARS",
+        y_pos=1,
+        speed=0.4,
+        wave_speed=0.18,
+        wave_amplitude=1.5,
+        wave_length=8.0,
+        font=font3x5,
+        brightness=1.0
+    )
+
+    scene = LayeredEffect(
+        Layer(SparkleField(density=30, speed_range=(15, 30)), BlendMode.MAX),
+        Layer(wave_text, BlendMode.MAX)
+    )
+
+    runner = EffectRunner(scene, fps=20)
+    runner.run(frames=200)
+
+
 ###############################################################################
 # GAME EFFECTS
 ###############################################################################
 
 def example_pacman():
-    """Example 20: Animated Pac-Man character."""
-    print("Example 20: Pac-Man")
+    """Example 23: Animated Pac-Man character."""
+    print("Example 23: Pac-Man")
 
     pacman = PacMan(x=0, y=3, x_speed=0.25, wrap=False)
 
@@ -300,8 +360,8 @@ def example_pacman():
 
 
 def example_ghost():
-    """Example 21: Animated ghost character."""
-    print("Example 21: Ghost")
+    """Example 24: Animated ghost character."""
+    print("Example 24: Ghost")
 
     ghost = Ghost(x=-7, y=2, x_speed=0.2)
 
@@ -310,8 +370,8 @@ def example_ghost():
 
 
 def example_pellet_row():
-    """Example 22: Row of pellets."""
-    print("Example 22: Pellet Row")
+    """Example 25: Row of pellets."""
+    print("Example 25: Pellet Row")
 
     pellets = PelletRow(y=3)
 
@@ -320,8 +380,8 @@ def example_pellet_row():
 
 
 def example_pacman_scene():
-    """Example 23: Complete Pac-Man scene with pellets and ghost."""
-    print("Example 23: Pac-Man Scene")
+    """Example 26: Complete Pac-Man scene with pellets and ghost."""
+    print("Example 26: Pac-Man Scene")
 
     scene = PacManScene(
         pellets=PelletRow(y=3),
@@ -338,8 +398,8 @@ def example_pacman_scene():
 ###############################################################################
 
 def example_layered_waves():
-    """Example 24: Multiple overlapping wave ripples."""
-    print("Example 24: Layered Waves")
+    """Example 27: Multiple overlapping wave ripples."""
+    print("Example 27: Layered Waves")
 
     scene = LayeredEffect(
         Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
@@ -352,8 +412,8 @@ def example_layered_waves():
 
 
 def example_layered_comets():
-    """Example 25: Multiple comets with different blend modes."""
-    print("Example 25: Layered Comets")
+    """Example 28: Multiple comets with different blend modes."""
+    print("Example 28: Layered Comets")
 
     scene = LayeredEffect(
         Layer(Comet(0, 0, dx=1, dy=1, tail_length=8, bounce=True), BlendMode.MAX),
@@ -365,8 +425,8 @@ def example_layered_comets():
 
 
 def example_sparkle_field_with_comet():
-    """Example 26: Sparkle field background with comet overlay."""
-    print("Example 26: SparkleField + Comet")
+    """Example 29: Sparkle field background with comet overlay."""
+    print("Example 29: SparkleField + Comet")
 
     scene = LayeredEffect(
         Layer(Comet(0, 0, dx=1, dy=1, tail_length=10, bounce=True), BlendMode.OVERWRITE),
@@ -378,8 +438,8 @@ def example_sparkle_field_with_comet():
 
 
 def example_text_with_sparkle_field():
-    """Example 27: Text scrolling over sparkle field."""
-    print("Example 27: Text + SparkleField")
+    """Example 30: Text scrolling over sparkle field."""
+    print("Example 30: Text + SparkleField")
 
     text = TextScroller("STARFIELD", y_pos=1, speed=0.4, brightness=1.0)
 
@@ -393,8 +453,8 @@ def example_text_with_sparkle_field():
 
 
 def example_text_with_wave():
-    """Example 28: Text with expanding wave background."""
-    print("Example 28: Text + Wave")
+    """Example 31: Text with expanding wave background."""
+    print("Example 31: Text + Wave")
 
     text = TextScroller("WAVES", y_pos=1, speed=0.3)
     wave = WaveRipple(cx=8, cy=3, speed=0.5)
@@ -409,8 +469,8 @@ def example_text_with_wave():
 
 
 def example_text_with_scanner():
-    """Example 29: Text with scanner sweep."""
-    print("Example 29: Text + Scanner")
+    """Example 32: Text with scanner sweep."""
+    print("Example 32: Text + Scanner")
 
     from scrollphathd.fonts import font3x5
 
@@ -427,8 +487,8 @@ def example_text_with_scanner():
 
 
 def example_complex_layer():
-    """Example 30: Complex multi-layer composition."""
-    print("Example 30: Complex Layering")
+    """Example 33: Complex multi-layer composition."""
+    print("Example 33: Complex Layering")
 
     scene = LayeredEffect(
         Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
@@ -443,8 +503,8 @@ def example_complex_layer():
 
 
 def example_pacman_layered():
-    """Example 28: Pac-Man scene built with layers."""
-    print("Example 28: Layered Pac-Man")
+    """Example 34: Pac-Man scene built with layers."""
+    print("Example 34: Layered Pac-Man")
 
     scene = LayeredEffect(
         Layer(PelletRow(y=3), BlendMode.OVERWRITE),
@@ -461,8 +521,8 @@ def example_pacman_layered():
 ###############################################################################
 
 def example_bake_animation():
-    """Example 29: Record animation to file for later playback."""
-    print("Example 29: Bake Animation")
+    """Example 35: Record animation to file for later playback."""
+    print("Example 35: Bake Animation")
 
     # Create an effect to record
     effect = LayeredEffect(
@@ -479,8 +539,8 @@ def example_bake_animation():
 
 
 def example_play_baked_animation():
-    """Example 30: Play back a recorded animation."""
-    print("Example 30: Play Baked Animation")
+    """Example 36: Play back a recorded animation."""
+    print("Example 36: Play Baked Animation")
 
     # Load and play the animation
     animation = BakedAnimation("demo_animation.anim.gz", loop=False)
@@ -500,6 +560,17 @@ def run_all_examples():
     print("=" * 70)
 
     examples = [
+        # Text effects
+        example_text_wave,
+        example_text_wave_static,
+        example_text_wave_layered,
+        example_text_scroll,
+        example_text_static,
+        example_text_looping,
+        example_text_reveal_comet,
+        example_text_reveal_scanner,
+        example_text_reveal_multi_comet,
+        
         # Core visual effects
         example_sparkle,
         example_sparkle_field,
@@ -515,13 +586,6 @@ def run_all_examples():
         example_zigzag_sweep,
         example_pulse_fade,
 
-        # Text effects
-        example_text_scroll,
-        example_text_static,
-        example_text_looping,
-        example_text_reveal_comet,
-        example_text_reveal_scanner,
-        example_text_reveal_multi_comet,
 
         # Game effects
         example_pacman,
@@ -629,10 +693,10 @@ if __name__ == '__main__':
         scrollphathd.rotate(degrees=180)
 
         # Run all examples in sequence
-        #run_all_examples()
+        run_all_examples()
 
         # Or uncomment individual examples to run them:
-        example_expanding_box()
+        #example_expanding_box()
         # example_sparkle_field()
         # example_comet()
         # example_text_with_sparkle_field()
