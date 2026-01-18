@@ -13,7 +13,7 @@ import scrollphathd
 from effects import (
     Sparkle, SparkleField, Comet, WaveRipple, ExpandingBox,
     SpiralSweep, ScannerSweep, ZigZagSweep, PulseFade,
-    TextScroller, TextRevealEffect, TextWaveEffect, PacMan, Ghost, PelletRow, PacManScene,
+    TextScroller, TextRevealEffect, TextWaveEffect, TextRainbowEffect, PacMan, Ghost, PelletRow, PacManScene,
     LayeredEffect, Layer, BlendMode, BakedAnimation
 )
 from runner import EffectRunner, AnimationRecorder, DisplayConfig
@@ -186,7 +186,7 @@ def example_text_scroll():
     """Example 14: Scrolling text message."""
     print("Example 14: Scrolling Text")
 
-    text = TextScroller("HELLO WORLD", speed=0.5)
+    text = TextScroller("Max and KiKi", speed=0.5)
 
     runner = EffectRunner(text, fps=20)
     runner.run(frames=100)
@@ -196,7 +196,7 @@ def example_text_static():
     """Example 15: Static text label."""
     print("Example 15: Static Text")
 
-    text = TextScroller("READY", speed=0)
+    text = TextScroller("Max", speed=0)
 
     runner = EffectRunner(text, fps=20)
     runner.run(frames=60)
@@ -206,7 +206,7 @@ def example_text_looping():
     """Example 16: Looping marquee text."""
     print("Example 16: Looping Text")
 
-    text = TextScroller("*** LOOP ***", speed=0.75, loop=True)
+    text = TextScroller("*** KiKi ***", speed=0.75, loop=True)
 
     runner = EffectRunner(text, fps=20)
     runner.run(frames=200)
@@ -221,7 +221,7 @@ def example_text_reveal_comet():
 
     # Text reveal effect - shows revealer and revealed text
     text_reveal = TextRevealEffect(
-        text="REVEAL",
+        text="Max",
         revealer=comet,
         x_pos=2,
         y_pos=2,
@@ -242,7 +242,7 @@ def example_text_reveal_scanner():
 
     # Text reveal effect
     text_reveal = TextRevealEffect(
-        text="SCAN",
+        text="KiKi",
         revealer=scanner,
         x_pos=1,
         y_pos=1,
@@ -290,7 +290,7 @@ def example_text_wave():
     print("Example 20: Text Wave - Scrolling")
 
     wave = TextWaveEffect(
-        "WAVE",
+        "Max",
         speed=0.5,
         wave_speed=0.1,
         wave_amplitude=1.0,
@@ -306,7 +306,7 @@ def example_text_wave_static():
     print("Example 21: Text Wave - Static")
 
     wave = TextWaveEffect(
-        "HELLO",
+        "KiKi",
         x_start=0,
         y_pos=1,
         speed=0,
@@ -326,7 +326,7 @@ def example_text_wave_layered():
     from scrollphathd.fonts import font3x5
 
     wave_text = TextWaveEffect(
-        "STARS",
+        "Max",
         y_pos=1,
         speed=0.4,
         wave_speed=0.09,
@@ -339,6 +339,73 @@ def example_text_wave_layered():
     scene = LayeredEffect(
         Layer(SparkleField(density=30, speed_range=(15, 30)), BlendMode.MAX),
         Layer(wave_text, BlendMode.MAX)
+    )
+
+    runner = EffectRunner(scene, fps=20)
+    runner.run(frames=200)
+
+
+def example_text_rainbow():
+    """Example 23: Scrolling text with subtle brightness shimmer effect."""
+    print("Example 23: Text Rainbow - Scrolling")
+
+    from effects import TextRainbowEffect
+
+    rainbow = TextRainbowEffect(
+        "KiKi",
+        speed=0.5,
+        wave_speed=0.15,
+        wave_length=8.0,
+        min_brightness=0.6,  # Subtle shimmer (default)
+        max_brightness=1.0
+    )
+
+    runner = EffectRunner(rainbow, fps=20)
+    runner.run(frames=200)
+
+
+def example_text_rainbow_static():
+    """Example 24: Static text with shimmering brightness wave."""
+    print("Example 24: Text Rainbow - Static")
+
+    from effects import TextRainbowEffect
+
+    shimmer = TextRainbowEffect(
+        "Max",
+        x_start=0,
+        y_pos=1,
+        speed=0,
+        wave_speed=0.2,
+        wave_length=6.0,
+        min_brightness=0.5,  # Slightly more pronounced
+        max_brightness=1.0
+    )
+
+    runner = EffectRunner(shimmer, fps=20)
+    runner.run(frames=150)
+
+
+def example_text_rainbow_layered():
+    """Example 25: Rainbow text layered over sparkle field."""
+    print("Example 25: Text Rainbow - Layered")
+
+    from scrollphathd.fonts import font3x5
+    from effects import TextRainbowEffect
+
+    rainbow_text = TextRainbowEffect(
+        "KiKi",
+        y_pos=1,
+        speed=0.4,
+        wave_speed=0.18,
+        wave_length=7.0,
+        min_brightness=0.5,  # Readable shimmer
+        max_brightness=1.0,
+        font=font3x5
+    )
+
+    scene = LayeredEffect(
+        Layer(SparkleField(density=20, speed_range=(15, 30)), BlendMode.ADD),
+        Layer(rainbow_text, BlendMode.MAX)
     )
 
     runner = EffectRunner(scene, fps=20)
@@ -441,7 +508,7 @@ def example_text_with_sparkle_field():
     """Example 30: Text scrolling over sparkle field."""
     print("Example 30: Text + SparkleField")
 
-    text = TextScroller("STARFIELD", y_pos=1, speed=0.4, brightness=1.0)
+    text = TextScroller("Max", y_pos=1, speed=0.4, brightness=1.0)
 
     scene = LayeredEffect(
         Layer(SparkleField(density=40, speed_range=(15, 30)), BlendMode.MAX),
@@ -456,7 +523,7 @@ def example_text_with_wave():
     """Example 31: Text with expanding wave background."""
     print("Example 31: Text + Wave")
 
-    text = TextScroller("WAVES", y_pos=1, speed=0.3)
+    text = TextScroller("KiKi", y_pos=1, speed=0.3)
     wave = WaveRipple(cx=8, cy=3, speed=0.5)
 
     scene = LayeredEffect(
@@ -474,7 +541,7 @@ def example_text_with_scanner():
 
     from scrollphathd.fonts import font3x5
 
-    text = TextScroller("SCAN", x_start=0, y_pos=2, speed=0, font=font3x5)
+    text = TextScroller("Max", x_start=0, y_pos=2, speed=0, font=font3x5)
     scanner = ScannerSweep(horizontal=False, speed=1, trail_length=4, bounce=True)
 
     scene = LayeredEffect(
@@ -561,6 +628,9 @@ def run_all_examples():
 
     examples = [
         # Text effects
+        example_text_rainbow,
+        example_text_rainbow_static,
+        example_text_rainbow_layered,
         example_text_wave,
         example_text_wave_static,
         example_text_wave_layered,

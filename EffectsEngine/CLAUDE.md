@@ -57,13 +57,13 @@ runner.run(frames=150)  # Run for specific frame count
 
 | File | Purpose | Size |
 | ------ | --------- | ------ |
-| **effects.py** | All 24 effect implementations | ~1500 lines |
+| **effects.py** | All 26 effect implementations | ~1900 lines |
 | **runner.py** | EffectRunner (real-time) + AnimationRecorder (pre-baking) | ~150 lines |
 | **main.py** | Demo entry point with demo functions | ~200 lines |
 | **test_text_simple.py** | Unit tests for TextScroller | ~300 lines |
 | **text_examples.py** | TextScroller usage examples | ~250 lines |
 
-## Available Effects (25 Classes)
+## Available Effects (26 Classes)
 
 ### Core Visual Effects
 
@@ -82,6 +82,7 @@ runner.run(frames=150)  # Run for specific frame count
 - **TextScroller**: Scrolling, static, or looping text with font support
 - **TextRevealEffect**: Progressive pixel-by-pixel text reveal as animation passes over it
 - **TextWaveEffect**: Animated text with vertical wave oscillation
+- **TextRainbowEffect**: Brightness wave shimmer traveling through text
 
 ### Game-Like Effects
 

@@ -1386,6 +1386,223 @@ class TextWaveEffect(BaseEffect):
         return self.done
 
 
+class TextRainbowEffect(BaseEffect):
+    """
+    Animated text with brightness wave shimmer effect.
+
+    Text brightness oscillates following a sinusoidal wave pattern that
+    propagates horizontally across the display. The wave motion creates
+    a shimmering/pulsing rainbow effect while maintaining text readability.
+
+    Supports both static text (with shimmer animation) and scrolling text
+    (combining horizontal scroll with brightness modulation). The wave is
+    continuous and deterministic, making it suitable for recording and layering.
+
+    Args:
+        text (str): Text string to display.
+        x_start (int | None): Starting x position (None = off-screen right for scrolling).
+        y_pos (int): Vertical position of text (default: 0).
+        speed (float): Horizontal scroll speed in pixels/frame (0 = static, default: 1.0).
+        wave_speed (float): Rainbow wave animation speed (radians per frame, default: 0.15).
+            Lower values create slower, more subtle shimmer.
+        wave_length (float): Wave period - pixels between brightness peaks (default: 8.0).
+            Longer wavelengths create smoother, more gradual brightness changes.
+        min_brightness (float): Minimum brightness value (default: 0.6).
+            Recommended range: 0.5-0.8 for subtle, readable shimmer.
+            Lower values create more dramatic effect but reduce readability.
+        max_brightness (float): Maximum brightness value (default: 1.0).
+            Should be greater than min_brightness.
+        font: scrollphathd font object (default: font5x7).
+        letter_spacing (int): Pixels between characters (default: 1).
+        loop (bool): Restart scrolling when complete (default: False).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+
+    Example:
+        # Basic scrolling rainbow text (subtle shimmer)
+        rainbow = TextRainbowEffect("PARTY")
+
+        # Static shimmering text
+        shimmer = TextRainbowEffect("HELLO", x_start=0, speed=0)
+
+        # More dramatic shimmer effect
+        dramatic = TextRainbowEffect("DISCO", wave_speed=0.25, min_brightness=0.3)
+
+        # Layered with background effect
+        from scrollphathd.fonts import font3x5
+        scene = LayeredEffect(
+            Layer(SparkleField(density=20), BlendMode.ADD),
+            Layer(TextRainbowEffect("STARS", y_pos=1, font=font3x5), BlendMode.MAX)
+        )
+
+    Behavior:
+        - Brightness wave propagates continuously across text
+        - Each pixel's brightness = min + (max - min) * (sin(x/wavelength + phase) + 1) / 2
+        - Scrolling and wave animation are independent
+        - Effect loops indefinitely (is_done() always returns False for looping)
+        - Compatible with all blend modes for layering
+    """
+
+    def __init__(
+        self,
+        text: str,
+        x_start: int | None = None,
+        y_pos: int = 0,
+        speed: float = 1.0,
+        wave_speed: float = 0.15,
+        wave_length: float = 8.0,
+        min_brightness: float = 0.6,
+        max_brightness: float = 1.0,
+        font=None,
+        letter_spacing: int = 1,
+        loop: bool = False,
+        width=None,
+        height=None,
+    ):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+
+        self.text = text
+        self.y_pos = y_pos
+        self.speed = speed
+        self.wave_speed = wave_speed
+        self.wave_length = wave_length
+        self.min_brightness = min_brightness
+        self.max_brightness = max_brightness
+        self.letter_spacing = letter_spacing
+        self.loop = loop
+
+        # Default x_start to off-screen right for scrolling
+        self.x_start = x_start if x_start is not None else self.width
+
+        # Set default font if none provided
+        if font is None:
+            try:
+                from scrollphathd.fonts import font5x7
+                self.font = font5x7
+            except ImportError:
+                raise ImportError("scrollphathd.fonts not available")
+        else:
+            self.font = font
+
+        # Pre-render text to pixels (at max brightness - will be modulated)
+        self.text_pixels, self.text_width = self._render_from_font_data()
+
+        self.reset()
+
+    def _render_from_font_data(self):
+        """
+        Render text by accessing font character bitmaps.
+
+        Renders at maximum brightness - brightness will be modulated
+        per frame based on wave function.
+
+        Returns:
+            tuple: (pixels, text_width) where pixels is list of (x, y, brightness)
+                   and text_width is the total width in pixels.
+        """
+        pixels = []
+        x_offset = 0
+
+        # Access the font data dictionary
+        font_data = self.font.data if hasattr(self.font, 'data') else self.font
+
+        for char in self.text:
+            # Get character bitmap from font
+            try:
+                char_data = font_data[ord(char)]
+            except (KeyError, IndexError):
+                # Character not in font, skip it
+                continue
+
+            # char_data is a list of rows (horizontal strips of pixels)
+            for row_idx, row in enumerate(char_data):
+                for col_idx in range(len(row)):
+                    if row[col_idx]:  # If pixel is set
+                        # Store at max brightness (will be modulated in step())
+                        pixels.append((
+                            x_offset + col_idx,
+                            row_idx,
+                            self.max_brightness
+                        ))
+
+            # Move to next character position
+            char_width = len(char_data[0]) if char_data else 0
+            x_offset += char_width + self.letter_spacing
+
+        # Total width is final offset minus trailing letter_spacing
+        text_width = x_offset - self.letter_spacing if x_offset > 0 else 0
+
+        return pixels, text_width
+
+    def reset(self):
+        """Reset scroll position and wave phase to starting point."""
+        self.scroll_offset = 0.0
+        self.wave_phase = 0.0
+        self.done = False
+
+    def step(self):
+        """
+        Advance animation and return visible pixels with brightness modulation.
+
+        Applies sinusoidal brightness wave to each pixel based on its
+        horizontal position and current wave phase.
+
+        Returns:
+            list[tuple[int, int, float]]: Pixels as (x, y, brightness) tuples.
+        """
+        if self.done:
+            return []
+
+        visible_pixels = []
+
+        for px, py, base_brightness in self.text_pixels:
+            # Apply horizontal scroll transformation
+            display_x = int(self.x_start + px - self.scroll_offset)
+
+            # Calculate brightness multiplier based on wave function
+            # Wave ranges from 0.0 to 1.0
+            wave_value = (math.sin(
+                (display_x / self.wave_length + self.wave_phase) * 2 * math.pi
+            ) + 1.0) / 2.0
+
+            # Map wave value to brightness range
+            brightness = self.min_brightness + (self.max_brightness - self.min_brightness) * wave_value
+
+            # Apply to y position (no wave transformation on position)
+            display_y = self.y_pos + py
+
+            # Only include pixels within viewport
+            if 0 <= display_x < self.width and 0 <= display_y < self.height:
+                visible_pixels.append((display_x, display_y, brightness))
+
+        # Update animation state
+        self.scroll_offset += self.speed
+        self.wave_phase += self.wave_speed
+
+        # Normalize wave_phase to prevent float overflow
+        if self.wave_phase > 2 * math.pi:
+            self.wave_phase -= 2 * math.pi
+
+        # Check if scrolling is complete
+        if self.speed > 0 and self.scroll_offset > self.x_start + self.text_width:
+            if self.loop:
+                self.scroll_offset = 0.0
+            else:
+                self.done = True
+
+        return visible_pixels
+
+    def is_done(self):
+        """
+        Return True if the effect has completed.
+
+        Returns False for looping effects or static text.
+        Returns True when scrolling text completes (if loop=False).
+        """
+        return self.done
+
+
 ###------------------------------------------------------------------------###
 # Pac Man, Pellet, and Ghost animation and scene logic
 class PacMan(BaseEffect):
