@@ -46,7 +46,7 @@ runner.run(frames=300)  # Loops for 15 seconds
 ### Constructor Parameters
 
 | Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+| ----------- | ------ | --------- | ------------- |
 | `text` | str | (required) | The text string to display |
 | `x_start` | int \| None | `width` | Starting X position (None = off-screen right) |
 | `y_pos` | int | 0 | Vertical position (0 = top) |
@@ -204,7 +204,7 @@ bottom = TextScroller("BOT", y_pos=5)     # Bottom (leaves 2px below)
 When layering text with other effects, choose appropriate blend modes:
 
 | Blend Mode | Effect | Use Case |
-|------------|--------|----------|
+| ------------ | -------- | ---------- |
 | `MAX` | Take brighter pixel | Prominent text over animations |
 | `ADD` | Add brightness | Glowing text effect |
 | `ALPHA_SOFT` | 75% background, 25% text | Subtle text overlay |
@@ -260,6 +260,7 @@ while not text.is_done():
 ### Font Data Structure
 
 Fonts are Python modules with a `data` dictionary:
+
 - `data[ord(char)]` returns list of columns (vertical pixel strips)
 - Each column is a list of pixel values (0 or 1)
 - TextScroller converts these to `(x, y, brightness)` tuples
@@ -273,6 +274,7 @@ Fonts are Python modules with a `data` dictionary:
 ## Examples
 
 See [text_examples.py](text_examples.py) for 13 complete usage examples including:
+
 - Simple scrolling
 - Static labels
 - Looping marquees
@@ -290,6 +292,7 @@ python test_text_simple.py
 ```
 
 This validates:
+
 - Pixel generation
 - Scrolling motion
 - Completion detection
@@ -350,21 +353,25 @@ def demo_all_effects(fps=25, frames_per_demo=150):
 
 ## Troubleshooting
 
-### Text not visible
+### Text not
+
 - Check `brightness` parameter (should be > 0)
 - Verify `y_pos` is within 0-6 range
 - Ensure `x_start` allows text to enter viewport
 
 ### Text scrolling too fast/slow
+
 - Adjust `speed` parameter
 - Check `fps` setting in EffectRunner
 - For smooth motion, use fractional speeds (0.25, 0.5, 0.75)
 
-### Characters missing
+### Characters
+
 - Character not in font - try different font
 - Unicode characters need `font5x7unicode`
 
 ### Layering issues
+
 - Check blend mode selection
 - Verify layer order (background first, text last)
 - Adjust brightness to ensure text is visible
@@ -372,6 +379,7 @@ def demo_all_effects(fps=25, frames_per_demo=150):
 ## Future Enhancements
 
 Potential additions (not yet implemented):
+
 - Vertical scrolling
 - Character-by-character reveal (typewriter effect)
 - Per-character color/brightness modulation
