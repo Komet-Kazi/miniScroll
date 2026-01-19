@@ -2121,6 +2121,410 @@ class PacManScene(BaseEffect):
     def is_done(self):
         return self.done
 
+
+###------------------------------------------------------------------------###
+# Tetris Effects
+###------------------------------------------------------------------------###
+
+# Piece shape definitions: list of (dx, dy) offsets from anchor point
+TETRIS_SHAPES = {
+    'I': [(0, 0), (0, 1), (0, 2)],           # Vertical line (3 tall)
+    'O': [(0, 0), (1, 0), (0, 1), (1, 1)],   # Square (2x2)
+    'L': [(0, 0), (0, 1), (1, 1)],           # L-shape
+    'T': [(0, 0), (1, 0), (2, 0), (1, 1)],   # T-shape (3 wide)
+    'S': [(0, 0), (1, 0)],                    # Single/small (2 wide)
+}
+
+# Brightness values for each shape type
+TETRIS_BRIGHTNESS = {
+    'I': 1.0,
+    'O': 0.9,
+    'L': 0.8,
+    'T': 0.85,
+    'S': 0.7,
+}
+
+# Fixed sequence of pieces (shape_key, x_position)
+# x_position is the exact column where the piece spawns
+# This sequence is designed to fill a complete row (17 pixels wide)
+# First 9 pieces fill bottom row: S(0-1) + S(2-3) + S(4-5) + S(6-7) + S(8-9) + S(10-11) + S(12-13) + S(14-15) + I(16)
+# Then continue with varied pieces
+TETRIS_SEQUENCE = [
+    ('S', 0),    # Fills columns 0-1
+    ('S', 2),    # Fills columns 2-3
+    ('S', 4),    # Fills columns 4-5
+    ('S', 6),    # Fills columns 6-7
+    ('S', 8),    # Fills columns 8-9
+    ('S', 10),   # Fills columns 10-11
+    ('S', 12),   # Fills columns 12-13
+    ('S', 14),   # Fills columns 14-15
+    ('I', 16),   # Fills column 16 - completes the row!
+    # After line clear, continue with more interesting pieces
+    ('T', 2),
+    ('O', 7),
+    ('L', 12),
+    ('T', 5),
+    ('O', 0),
+    ('L', 14),
+]
+
+
+class TetrisPiece(BaseEffect):
+    """
+    A falling Tetris piece that drops from top to bottom.
+
+    Renders a tetromino shape that falls at a configurable speed until
+    it reaches a target y position (typically set by collision detection
+    in TetrisScene).
+
+    Args:
+        x (int): Horizontal start position (left edge of piece).
+        shape (list): List of (dx, dy) offsets defining piece shape.
+        brightness (float): Piece brightness 0.0-1.0 (default: 1.0).
+        fall_speed (float): Pixels per frame to fall (default: 0.2).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+    """
+
+    def __init__(self, x, shape, brightness=1.0, fall_speed=0.2,
+                 width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+        self.start_x = x
+        self.shape = shape
+        self.brightness = brightness
+        self.fall_speed = fall_speed
+        self.target_y: int | None = None  # Set externally when landing position known
+        self.reset()
+
+    def reset(self):
+        """Reset piece to starting position."""
+        self.x = self.start_x
+        self.y = -self._get_shape_height()  # Start above display
+        self.landed = False
+        self.done = False
+
+    def _get_shape_height(self):
+        """Return the height of this piece shape."""
+        if not self.shape:
+            return 1
+        return max(dy for _, dy in self.shape) + 1
+
+    def _get_shape_width(self):
+        """Return the width of this piece shape."""
+        if not self.shape:
+            return 1
+        return max(dx for dx, _ in self.shape) + 1
+
+    def get_pixels_at_y(self, y_pos):
+        """Return pixel coordinates if piece were at given y position."""
+        pixels = []
+        for dx, dy in self.shape:
+            px = self.x + dx
+            py = int(y_pos) + dy
+            if 0 <= px < self.width and 0 <= py < self.height:
+                pixels.append((px, py))
+        return pixels
+
+    def step(self):
+        """Advance one frame, moving piece down."""
+        if self.done:
+            return []
+
+        # Move down
+        self.y += self.fall_speed
+
+        # Check if landed at target
+        if self.target_y is not None and self.y >= self.target_y:
+            self.y = self.target_y
+            self.landed = True
+            self.done = True
+
+        # Render current position
+        pixels = []
+        for dx, dy in self.shape:
+            px = self.x + dx
+            py = int(self.y) + dy
+            if 0 <= px < self.width and 0 <= py < self.height:
+                pixels.append((px, py, self.brightness))
+
+        return pixels
+
+    def is_done(self):
+        """Return True when piece has landed."""
+        return self.done
+
+
+class TetrisBoard(BaseEffect):
+    """
+    Tracks landed Tetris pieces and handles line clearing.
+
+    Maintains a grid of landed blocks, detects complete lines,
+    plays a blink animation, then removes cleared lines and
+    drops rows above.
+
+    Args:
+        blink_frames (int): Frames to blink before clearing (default: 8).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+    """
+
+    def __init__(self, blink_frames=8, width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+        self.blink_frames = blink_frames
+        self.reset()
+
+    def reset(self):
+        """Clear the board."""
+        self.grid = {}  # (x, y) -> brightness
+        self.clearing_lines = []  # y-values being cleared
+        self.blink_phase = 0
+        self.done = False
+
+    def add_piece(self, pixels, brightness):
+        """
+        Add landed piece pixels to the board.
+
+        Args:
+            pixels: List of (x, y) coordinates.
+            brightness: Brightness value for these pixels.
+        """
+        for x, y in pixels:
+            if 0 <= x < self.width and 0 <= y < self.height:
+                self.grid[(x, y)] = brightness
+
+    def check_lines(self):
+        """Check for and mark complete lines for clearing."""
+        for y in range(self.height):
+            filled = sum(1 for x in range(self.width) if (x, y) in self.grid)
+            if filled == self.width and y not in self.clearing_lines:
+                self.clearing_lines.append(y)
+                self.blink_phase = 0
+
+    def _clear_lines(self):
+        """Remove cleared lines and drop rows above."""
+        if not self.clearing_lines:
+            return
+
+        # Sort lines from bottom to top for proper shifting
+        lines_to_clear = sorted(self.clearing_lines, reverse=True)
+
+        for clear_y in lines_to_clear:
+            # Remove the cleared line
+            for x in range(self.width):
+                self.grid.pop((x, clear_y), None)
+
+            # Drop all rows above this line down by 1
+            new_grid = {}
+            for (x, y), brightness in self.grid.items():
+                if y < clear_y:
+                    # Row above cleared line - drop it down
+                    new_grid[(x, y + 1)] = brightness
+                else:
+                    # Row below cleared line - keep in place
+                    new_grid[(x, y)] = brightness
+            self.grid = new_grid
+
+        self.clearing_lines = []
+
+    def is_clearing(self):
+        """Return True if currently in line-clear animation."""
+        return len(self.clearing_lines) > 0
+
+    def get_landing_y(self, piece_pixels):
+        """
+        Calculate the y position where a piece would land.
+
+        Args:
+            piece_pixels: List of (x, y) coordinates at y=0.
+
+        Returns:
+            The y offset where the piece would stop (bottom or collision).
+        """
+        for test_y in range(self.height + 3):  # +3 for pieces starting above
+            for px, py_offset in piece_pixels:
+                py = test_y + py_offset
+                # Check bottom boundary
+                if py >= self.height:
+                    return test_y - 1
+                # Check collision with existing blocks
+                if (px, py) in self.grid:
+                    return test_y - 1
+        return self.height - 1
+
+    def step(self):
+        """Render board and handle line-clear animation."""
+        pixels = []
+
+        # Handle blink animation for clearing lines
+        if self.clearing_lines:
+            self.blink_phase += 1
+            blink_on = (self.blink_phase // 2) % 2 == 0
+
+            # Render non-clearing pixels normally
+            for (x, y), brightness in self.grid.items():
+                if y not in self.clearing_lines:
+                    pixels.append((x, y, brightness))
+                elif blink_on:
+                    # Clearing line - blink at full brightness
+                    pixels.append((x, y, 1.0))
+
+            # Check if blink animation complete
+            if self.blink_phase >= self.blink_frames:
+                self._clear_lines()
+        else:
+            # Normal render - all pixels
+            for (x, y), brightness in self.grid.items():
+                pixels.append((x, y, brightness))
+
+        return pixels
+
+    def is_done(self):
+        """Board never marks itself as done."""
+        return False
+
+
+class TetrisScene(BaseEffect):
+    """
+    Complete Tetris scene with falling pieces and line clears.
+
+    Orchestrates piece spawning, falling, landing, and line clearing.
+    Uses a fixed piece sequence for consistent visual effect.
+    Speed increases as more pieces land.
+
+    Args:
+        num_pieces (int): Total pieces to drop before scene ends (default: 15).
+        base_fall_speed (float): Starting fall speed (default: 0.15).
+        speed_increment (float): Speed increase per landed piece (default: 0.02).
+        blink_frames (int): Frames for line-clear blink (default: 8).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+
+    Example:
+        # Basic Tetris scene
+        scene = TetrisScene(num_pieces=20)
+        runner = EffectRunner(scene, fps=25)
+        runner.run()
+
+        # Faster, shorter scene
+        scene = TetrisScene(num_pieces=10, base_fall_speed=0.25)
+    """
+
+    def __init__(self, num_pieces=15, base_fall_speed=0.15,
+                 speed_increment=0.02, blink_frames=8,
+                 width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+        self.num_pieces = num_pieces
+        self.base_fall_speed = base_fall_speed
+        self.speed_increment = speed_increment
+        self.blink_frames = blink_frames
+        self.reset()
+
+    def reset(self):
+        """Reset scene to initial state."""
+        self.board = TetrisBoard(
+            blink_frames=self.blink_frames,
+            width=self.width,
+            height=self.height
+        )
+        self.current_piece = None
+        self.pieces_dropped = 0
+        self.sequence_index = 0
+        self.done = False
+        self._spawn_next_piece()
+
+    def _get_current_speed(self):
+        """Calculate current fall speed based on pieces dropped."""
+        return self.base_fall_speed + (self.pieces_dropped * self.speed_increment)
+
+    def _spawn_next_piece(self):
+        """Spawn the next piece from the sequence."""
+        if self.pieces_dropped >= self.num_pieces:
+            self.current_piece = None
+            return
+
+        # Get piece from sequence (wrapping if needed)
+        shape_key, x_pos = TETRIS_SEQUENCE[self.sequence_index % len(TETRIS_SEQUENCE)]
+        self.sequence_index += 1
+
+        shape = TETRIS_SHAPES[shape_key]
+        brightness = TETRIS_BRIGHTNESS[shape_key]
+
+        # Clamp x position to valid range
+        piece_width = max(dx for dx, _ in shape) + 1
+        max_x = self.width - piece_width
+        x = min(x_pos, max_x)
+
+        # Create piece with current speed
+        self.current_piece = TetrisPiece(
+            x=x,
+            shape=shape,
+            brightness=brightness,
+            fall_speed=self._get_current_speed(),
+            width=self.width,
+            height=self.height
+        )
+
+        # Calculate where it will land
+        shape_offsets = [(dx, dy) for dx, dy in shape]
+        landing_y = self.board.get_landing_y(
+            [(x + dx, dy) for dx, dy in shape_offsets]
+        )
+        self.current_piece.target_y = landing_y
+
+    def step(self):
+        """Advance one frame of the scene."""
+        if self.done:
+            return []
+
+        pixels = []
+
+        # If board is clearing lines, wait for animation
+        if self.board.is_clearing():
+            pixels += self.board.step()
+            return pixels
+
+        # Spawn new piece if needed (after line clear or at start)
+        if self.current_piece is None and self.pieces_dropped < self.num_pieces:
+            self._spawn_next_piece()
+
+        # Update current piece
+        if self.current_piece is not None:
+            piece_pixels = self.current_piece.step()
+            pixels += piece_pixels
+
+            # Check if piece landed
+            if self.current_piece.landed:
+                # Add to board
+                landed_coords = self.current_piece.get_pixels_at_y(
+                    self.current_piece.target_y
+                )
+                self.board.add_piece(landed_coords, self.current_piece.brightness)
+                self.pieces_dropped += 1
+
+                # Check for line clears
+                self.board.check_lines()
+
+                # Clear current piece (will spawn next frame unless clearing)
+                self.current_piece = None
+
+        # Render board
+        pixels += self.board.step()
+
+        # Check completion
+        if self.current_piece is None and not self.board.is_clearing():
+            if self.pieces_dropped >= self.num_pieces:
+                self.done = True
+
+        return pixels
+
+    def is_done(self):
+        """Return True when all pieces dropped and animations complete."""
+        return self.done
+
+
 ###------------------------------------------------------------------------###
 
 

@@ -13,7 +13,9 @@ import scrollphathd
 from effects import (
     Sparkle, SparkleField, Comet, WaveRipple, ExpandingBox,
     SpiralSweep, ScannerSweep, ZigZagSweep, PulseFade,
-    TextScroller, TextRevealEffect, TextWaveEffect, TextRainbowEffect, TextFadeEffect, PacMan, Ghost, PelletRow, PacManScene,
+    TextScroller, TextRevealEffect, TextWaveEffect, TextRainbowEffect, TextFadeEffect,
+    PacMan, Ghost, PelletRow, PacManScene,
+    TetrisScene,
     LayeredEffect, Layer, BlendMode, BakedAnimation
 )
 from runner import EffectRunner, AnimationRecorder, DisplayConfig
@@ -528,6 +530,55 @@ def example_pacman_scene():
     runner.run(frames=200)
 
 
+def example_tetris():
+    """Example 27: Tetris scene with falling blocks and line clears."""
+    print("Example 27: Tetris Scene")
+
+    scene = TetrisScene(
+        num_pieces=15,
+        base_fall_speed=0.15,
+        speed_increment=0.02,
+        blink_frames=8
+    )
+
+    runner = EffectRunner(scene, fps=20)
+    runner.run(frames=500)
+
+
+def example_tetris_fast():
+    """Example 28: Fast Tetris scene with more pieces."""
+    print("Example 28: Fast Tetris")
+
+    scene = TetrisScene(
+        num_pieces=20,
+        base_fall_speed=0.25,
+        speed_increment=0.03,
+        blink_frames=6
+    )
+
+    runner = EffectRunner(scene, fps=25)
+    runner.run(frames=1000)
+
+
+def example_tetris_layered():
+    """Example 29: Tetris scene with sparkle background."""
+    print("Example 29: Tetris + Sparkles")
+
+    tetris = TetrisScene(
+        num_pieces=12,
+        base_fall_speed=0.18,
+        speed_increment=0.02
+    )
+
+    scene = LayeredEffect(
+        Layer(SparkleField(density=15, speed_range=(20, 40)), BlendMode.ADD),
+        Layer(tetris, BlendMode.MAX)
+    )
+
+    runner = EffectRunner(scene, fps=20)
+    runner.run(frames=450)
+
+
 ###############################################################################
 # LAYERED EFFECTS
 ###############################################################################
@@ -729,6 +780,9 @@ def run_all_examples():
 
 
         # Game effects
+        example_tetris,
+        example_tetris_fast,
+        example_tetris_layered,
         example_pacman,
         example_ghost,
         example_pellet_row,
@@ -834,10 +888,11 @@ if __name__ == '__main__':
         scrollphathd.rotate(degrees=180)
 
         # Run all examples in sequence
-        run_all_examples()
+        # run_all_examples()
 
         # Or uncomment individual examples to run them:
-        #example_expanding_box()
+        example_tetris_fast()
+        # example_expanding_box()
         # example_sparkle_field()
         # example_comet()
         # example_text_with_sparkle_field()

@@ -63,7 +63,7 @@ runner.run(frames=150)  # Run for specific frame count
 | **test_text_simple.py** | Unit tests for TextScroller | ~300 lines |
 | **text_examples.py** | TextScroller usage examples | ~250 lines |
 
-## Available Effects (27 Classes)
+## Available Effects (30 Classes)
 
 ### Core Visual Effects
 
@@ -89,6 +89,7 @@ runner.run(frames=150)  # Run for specific frame count
 
 - **PacMan**, **Ghost**, **PelletRow**: Animated game characters
 - **PacManScene**: Pre-composed scene combining above
+- **TetrisPiece**, **TetrisBoard**, **TetrisScene**: Tetris-style falling blocks with line clears
 
 ### Composite
 
