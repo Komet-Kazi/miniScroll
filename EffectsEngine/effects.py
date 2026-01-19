@@ -19,7 +19,7 @@ ic.disable()
 
 
 import math, collections
-from random import randint
+from random import randint, choice
 from enum import Enum
 
 from runner import DisplayConfig
@@ -2151,12 +2151,12 @@ TETRIS_BRIGHTNESS = {
 # Then continue with varied pieces
 TETRIS_SEQUENCE = [
     ('S', 0),    # Fills columns 0-1
-    ('S', 2),    # Fills columns 2-3
-    ('S', 4),    # Fills columns 4-5
+    ('L', 4),    # Fills columns 4-5
     ('S', 6),    # Fills columns 6-7
-    ('S', 8),    # Fills columns 8-9
+    ('O', 8),    # Fills columns 8-9
     ('S', 10),   # Fills columns 10-11
-    ('S', 12),   # Fills columns 12-13
+    ('L', 12),   # Fills columns 12-13
+    ('O', 2),    # Fills columns 2-3
     ('S', 14),   # Fills columns 14-15
     ('I', 16),   # Fills column 16 - completes the row!
     # After line clear, continue with more interesting pieces
@@ -2166,6 +2166,11 @@ TETRIS_SEQUENCE = [
     ('T', 5),
     ('O', 0),
     ('L', 14),
+    ('L', 4),    # Fills columns 4-5
+    ('S', 6),    # Fills columns 6-7
+    ('O', 8),    # Fills columns 8-9
+    ('S', 10),   # Fills columns 10-11
+    ('L', 12),   # Fills columns 12-13
 ]
 
 
@@ -2261,18 +2266,21 @@ class TetrisBoard(BaseEffect):
 
     Maintains a grid of landed blocks, detects complete lines,
     plays a blink animation, then removes cleared lines and
-    drops rows above.
+    drops rows above. Also handles full-board blink and clear
+    when the board becomes full.
 
     Args:
-        blink_frames (int): Frames to blink before clearing (default: 8).
+        blink_frames (int): Frames to blink before clearing lines (default: 8).
+        full_blink_frames (int): Frames to blink when board is full (default: 12).
         width (int | None): Display width (None = use DisplayConfig).
         height (int | None): Display height (None = use DisplayConfig).
     """
 
-    def __init__(self, blink_frames=8, width=None, height=None):
+    def __init__(self, blink_frames=8, full_blink_frames=12, width=None, height=None):
         self.width = width if width is not None else DisplayConfig.width
         self.height = height if height is not None else DisplayConfig.height
         self.blink_frames = blink_frames
+        self.full_blink_frames = full_blink_frames
         self.reset()
 
     def reset(self):
@@ -2281,6 +2289,9 @@ class TetrisBoard(BaseEffect):
         self.clearing_lines = []  # y-values being cleared
         self.blink_phase = 0
         self.done = False
+        # Full-board clear state
+        self.full_board_clearing = False
+        self.full_blink_phase = 0
 
     def add_piece(self, pixels, brightness):
         """
@@ -2295,8 +2306,14 @@ class TetrisBoard(BaseEffect):
                 self.grid[(x, y)] = brightness
 
     def check_lines(self):
-        """Check for and mark complete lines for clearing."""
-        for y in range(self.height):
+        """Check for and mark complete lines for clearing.
+
+        Note: Row 0 (top row) is never cleared during normal gameplay.
+        This allows columns to fill to the top and block new pieces.
+        The top row is only cleared during full-board reset.
+        """
+        # Start from y=1 to skip top row - top row stays filled to block columns
+        for y in range(1, self.height):
             filled = sum(1 for x in range(self.width) if (x, y) in self.grid)
             if filled == self.width and y not in self.clearing_lines:
                 self.clearing_lines.append(y)
@@ -2332,6 +2349,58 @@ class TetrisBoard(BaseEffect):
         """Return True if currently in line-clear animation."""
         return len(self.clearing_lines) > 0
 
+    def is_full(self, piece_pixels):
+        """
+        Check if the board is full (piece cannot land safely).
+
+        Args:
+            piece_pixels: List of (x, y) coordinates at y=0 position.
+
+        Returns:
+            True if piece would land at y < 0 (no room to spawn).
+        """
+        landing_y = self.get_landing_y(piece_pixels)
+        return landing_y < 0
+
+    def get_blocked_columns(self):
+        """
+        Return set of columns that have a block at the top row (y=0).
+
+        These columns are considered "full" and should not receive new pieces.
+
+        Returns:
+            set[int]: Column indices that are blocked.
+        """
+        blocked = set()
+        for x in range(self.width):
+            if (x, 0) in self.grid:
+                blocked.add(x)
+        return blocked
+
+    def all_columns_blocked(self):
+        """
+        Check if all columns have blocks at the top row.
+
+        Returns:
+            True if every column has at least one block at y=0.
+        """
+        return len(self.get_blocked_columns()) >= self.width
+
+    def is_full_clearing(self):
+        """Return True if currently in full-board blink animation."""
+        return self.full_board_clearing
+
+    def start_full_clear(self):
+        """Begin full-board blink animation."""
+        self.full_board_clearing = True
+        self.full_blink_phase = 0
+
+    def clear_board(self):
+        """Reset the entire board after full-board clear."""
+        self.grid.clear()
+        self.full_board_clearing = False
+        self.full_blink_phase = 0
+
     def get_landing_y(self, piece_pixels):
         """
         Calculate the y position where a piece would land.
@@ -2354,8 +2423,24 @@ class TetrisBoard(BaseEffect):
         return self.height - 1
 
     def step(self):
-        """Render board and handle line-clear animation."""
+        """Render board and handle line-clear or full-board blink animation."""
         pixels = []
+
+        # Handle full-board blink animation (takes priority)
+        if self.full_board_clearing:
+            self.full_blink_phase += 1
+            blink_on = (self.full_blink_phase // 2) % 2 == 0
+
+            # Blink all pixels on the board
+            if blink_on:
+                for (x, y), brightness in self.grid.items():
+                    pixels.append((x, y, 1.0))
+
+            # Check if full-board blink animation complete
+            if self.full_blink_phase >= self.full_blink_frames:
+                self.clear_board()
+
+            return pixels
 
         # Handle blink animation for clearing lines
         if self.clearing_lines:
@@ -2390,42 +2475,53 @@ class TetrisScene(BaseEffect):
     Complete Tetris scene with falling pieces and line clears.
 
     Orchestrates piece spawning, falling, landing, and line clearing.
-    Uses a fixed piece sequence for consistent visual effect.
-    Speed increases as more pieces land.
+    The first cycle uses a fixed piece sequence designed to demonstrate
+    line clears. After the board fills and clears, subsequent cycles use
+    randomized pieces for variety. Speed increases as more pieces land.
+
+    In loop mode (default), pieces continue falling and avoid columns that
+    have blocks at the top row. When a column fills to the top, new pieces
+    are placed in remaining open columns. Only when ALL columns are blocked
+    does the board blink and clear to start again with random pieces.
 
     Args:
-        num_pieces (int): Total pieces to drop before scene ends (default: 15).
+        num_pieces (int | None): Total pieces before scene ends. None = unlimited (loop mode).
         base_fall_speed (float): Starting fall speed (default: 0.15).
         speed_increment (float): Speed increase per landed piece (default: 0.02).
         blink_frames (int): Frames for line-clear blink (default: 8).
+        full_blink_frames (int): Frames for full-board blink (default: 12).
+        loop (bool): If True, loops forever when board fills (default: True).
         width (int | None): Display width (None = use DisplayConfig).
         height (int | None): Display height (None = use DisplayConfig).
 
     Example:
-        # Basic Tetris scene
-        scene = TetrisScene(num_pieces=20)
+        # Continuous looping Tetris (default)
+        scene = TetrisScene()
         runner = EffectRunner(scene, fps=25)
         runner.run()
 
-        # Faster, shorter scene
-        scene = TetrisScene(num_pieces=10, base_fall_speed=0.25)
+        # Fixed number of pieces (no loop)
+        scene = TetrisScene(num_pieces=20, loop=False)
     """
 
-    def __init__(self, num_pieces=15, base_fall_speed=0.15,
-                 speed_increment=0.02, blink_frames=8,
-                 width=None, height=None):
+    def __init__(self, num_pieces=None, base_fall_speed=0.15,
+                 speed_increment=0.02, blink_frames=8, full_blink_frames=12,
+                 loop=True, width=None, height=None):
         self.width = width if width is not None else DisplayConfig.width
         self.height = height if height is not None else DisplayConfig.height
         self.num_pieces = num_pieces
         self.base_fall_speed = base_fall_speed
         self.speed_increment = speed_increment
         self.blink_frames = blink_frames
+        self.full_blink_frames = full_blink_frames
+        self.loop = loop
         self.reset()
 
     def reset(self):
         """Reset scene to initial state."""
         self.board = TetrisBoard(
             blink_frames=self.blink_frames,
+            full_blink_frames=self.full_blink_frames,
             width=self.width,
             height=self.height
         )
@@ -2433,20 +2529,106 @@ class TetrisScene(BaseEffect):
         self.pieces_dropped = 0
         self.sequence_index = 0
         self.done = False
+        self.use_random = False  # Start with sequence, switch to random after first loop
+        self._next_piece_data = None  # Cache for next piece (shape_key, x_pos)
         self._spawn_next_piece()
 
     def _get_current_speed(self):
         """Calculate current fall speed based on pieces dropped."""
         return self.base_fall_speed + (self.pieces_dropped * self.speed_increment)
 
+    def _generate_random_piece(self):
+        """
+        Generate a random piece with random x position that can land safely.
+
+        Selects a random shape and finds a valid x position where the piece
+        would land at y >= 1 (has room to fall at least one row before landing).
+        This ensures columns continue filling until truly full.
+
+        Returns:
+            tuple: (shape_key, x_pos) or None if no valid position exists.
+        """
+        from random import shuffle
+
+        # Try multiple shapes to find one that fits
+        shape_keys = list(TETRIS_SHAPES.keys())
+        shuffle(shape_keys)
+
+        for shape_key in shape_keys:
+            shape = TETRIS_SHAPES[shape_key]
+            piece_width = max(dx for dx, _ in shape) + 1
+
+            # Find valid x positions where piece can land at y >= 1
+            valid_positions = []
+            for x_pos in range(self.width - piece_width + 1):
+                # Calculate landing position for this piece at this x
+                piece_pixels = [(x_pos + dx, dy) for dx, dy in shape]
+                landing_y = self.board.get_landing_y(piece_pixels)
+
+                # Valid if piece can land on the board (y >= 0)
+                if landing_y >= 0:
+                    valid_positions.append(x_pos)
+
+            if valid_positions:
+                x_pos = choice(valid_positions)
+                return (shape_key, x_pos)
+
+        # No valid position found for any piece - board is full
+        return None
+
+    def _get_next_piece_data(self):
+        """Get the next piece data, using cache or generating new.
+
+        In sequence mode, returns the next piece from TETRIS_SEQUENCE but
+        validates that it can land. If the sequence piece can't land, falls
+        back to _generate_random_piece() which tries all shapes/positions.
+
+        Returns:
+            tuple: (shape_key, x_pos) or None if no valid position exists.
+        """
+        if self._next_piece_data is not None:
+            return self._next_piece_data
+
+        if self.use_random:
+            self._next_piece_data = self._generate_random_piece()
+        else:
+            # Get sequence piece but validate it can land
+            shape_key, x_pos = TETRIS_SEQUENCE[self.sequence_index % len(TETRIS_SEQUENCE)]
+            shape = TETRIS_SHAPES[shape_key]
+            piece_width = max(dx for dx, _ in shape) + 1
+            max_x = self.width - piece_width
+            x = min(x_pos, max_x)
+
+            # Check if this piece can land at this position
+            piece_pixels = [(x + dx, dy) for dx, dy in shape]
+            landing_y = self.board.get_landing_y(piece_pixels)
+
+            if landing_y >= 0:
+                # Sequence piece can land
+                self._next_piece_data = (shape_key, x_pos)
+            else:
+                # Sequence piece can't land - try to find ANY valid position
+                self._next_piece_data = self._generate_random_piece()
+
+        return self._next_piece_data
+
     def _spawn_next_piece(self):
-        """Spawn the next piece from the sequence."""
-        if self.pieces_dropped >= self.num_pieces:
+        """Spawn the next piece from the sequence or randomly."""
+        # Check piece limit (None = unlimited)
+        if self.num_pieces is not None and self.pieces_dropped >= self.num_pieces:
             self.current_piece = None
             return
 
-        # Get piece from sequence (wrapping if needed)
-        shape_key, x_pos = TETRIS_SEQUENCE[self.sequence_index % len(TETRIS_SEQUENCE)]
+        # Get piece data (cached or new)
+        piece_data = self._get_next_piece_data()
+        self._next_piece_data = None  # Clear cache after use
+
+        # No valid piece available (all columns blocked)
+        if piece_data is None:
+            self.current_piece = None
+            return
+
+        shape_key, x_pos = piece_data
         self.sequence_index += 1
 
         shape = TETRIS_SHAPES[shape_key]
@@ -2474,6 +2656,30 @@ class TetrisScene(BaseEffect):
         )
         self.current_piece.target_y = landing_y
 
+    def _can_spawn_more(self):
+        """Check if more pieces can be spawned based on num_pieces limit."""
+        if self.num_pieces is None:
+            return True  # Unlimited
+        return self.pieces_dropped < self.num_pieces
+
+    def _get_next_piece_pixels(self):
+        """
+        Get the pixel positions for the next piece at y=0 (for collision check).
+
+        Returns:
+            list or None: Pixel positions, or None if no valid piece available.
+        """
+        piece_data = self._get_next_piece_data()
+        if piece_data is None:
+            return None
+
+        shape_key, x_pos = piece_data
+        shape = TETRIS_SHAPES[shape_key]
+        piece_width = max(dx for dx, _ in shape) + 1
+        max_x = self.width - piece_width
+        x = min(x_pos, max_x)
+        return [(x + dx, dy) for dx, dy in shape]
+
     def step(self):
         """Advance one frame of the scene."""
         if self.done:
@@ -2481,14 +2687,40 @@ class TetrisScene(BaseEffect):
 
         pixels = []
 
+        # If board is doing full-board clear, wait for animation
+        if self.board.is_full_clearing():
+            pixels += self.board.step()
+            # After full clear completes, reset for next round if looping
+            if not self.board.is_full_clearing() and self.loop:
+                self.pieces_dropped = 0
+                self.sequence_index = 0
+                self.use_random = True  # Use random pieces after first loop
+                self._next_piece_data = None  # Clear cached piece data
+                self._spawn_next_piece()
+            return pixels
+
         # If board is clearing lines, wait for animation
         if self.board.is_clearing():
             pixels += self.board.step()
             return pixels
 
         # Spawn new piece if needed (after line clear or at start)
-        if self.current_piece is None and self.pieces_dropped < self.num_pieces:
-            self._spawn_next_piece()
+        if self.current_piece is None and self._can_spawn_more():
+            # Check if there's a valid spawn position
+            next_piece_pixels = self._get_next_piece_pixels()
+            if next_piece_pixels is None:
+                # No valid position - board is full, start blink and clear
+                if self.loop:
+                    self.board.start_full_clear()
+                    pixels += self.board.step()
+                    return pixels
+                else:
+                    # Not looping - mark as done
+                    self.done = True
+                    pixels += self.board.step()
+                    return pixels
+            else:
+                self._spawn_next_piece()
 
         # Update current piece
         if self.current_piece is not None:
@@ -2513,15 +2745,16 @@ class TetrisScene(BaseEffect):
         # Render board
         pixels += self.board.step()
 
-        # Check completion
-        if self.current_piece is None and not self.board.is_clearing():
-            if self.pieces_dropped >= self.num_pieces:
-                self.done = True
+        # Check completion (only when not looping and have piece limit)
+        if not self.loop and self.num_pieces is not None:
+            if self.current_piece is None and not self.board.is_clearing():
+                if self.pieces_dropped >= self.num_pieces:
+                    self.done = True
 
         return pixels
 
     def is_done(self):
-        """Return True when all pieces dropped and animations complete."""
+        """Return True when scene is complete (never true in loop mode)."""
         return self.done
 
 

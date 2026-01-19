@@ -531,43 +531,58 @@ def example_pacman_scene():
 
 
 def example_tetris():
-    """Example 27: Tetris scene with falling blocks and line clears."""
-    print("Example 27: Tetris Scene")
+    """Example 27: Continuous Tetris - fills screen, blinks, clears, repeats."""
+    print("Example 27: Continuous Tetris (loops when full)")
 
+    # Default loop=True: pieces fall until screen full, then blink and restart
     scene = TetrisScene(
-        num_pieces=15,
         base_fall_speed=0.15,
-        speed_increment=0.02,
-        blink_frames=8
+        speed_increment=0.01,
+        blink_frames=8,
+        full_blink_frames=12
     )
 
     runner = EffectRunner(scene, fps=20)
-    runner.run(frames=500)
+    runner.run(frames=800)  # Watch it fill up, blink, and restart
 
 
 def example_tetris_fast():
-    """Example 28: Fast Tetris scene with more pieces."""
-    print("Example 28: Fast Tetris")
+    """Example 28: Fast continuous Tetris."""
+    print("Example 28: Fast Continuous Tetris")
 
     scene = TetrisScene(
-        num_pieces=20,
         base_fall_speed=0.25,
-        speed_increment=0.03,
-        blink_frames=6
+        speed_increment=0.015,
+        blink_frames=6,
+        full_blink_frames=10
     )
 
     runner = EffectRunner(scene, fps=25)
     runner.run(frames=1000)
 
 
+def example_tetris_fixed():
+    """Example 29: Fixed piece count Tetris (non-looping)."""
+    print("Example 29: Fixed Tetris (15 pieces, no loop)")
+
+    scene = TetrisScene(
+        num_pieces=15,
+        base_fall_speed=0.18,
+        speed_increment=0.02,
+        loop=False  # Stops after num_pieces
+    )
+
+    runner = EffectRunner(scene, fps=20)
+    runner.run(frames=500)
+
+
 def example_tetris_layered():
-    """Example 29: Tetris scene with sparkle background."""
-    print("Example 29: Tetris + Sparkles")
+    """Example 30: Continuous Tetris with sparkle background."""
+    print("Example 30: Tetris + Sparkles")
 
     tetris = TetrisScene(
-        num_pieces=12,
         base_fall_speed=0.18,
-        speed_increment=0.02
+        speed_increment=0.01
     )
 
     scene = LayeredEffect(
@@ -576,7 +591,7 @@ def example_tetris_layered():
     )
 
     runner = EffectRunner(scene, fps=20)
-    runner.run(frames=450)
+    runner.run(frames=800)
 
 
 ###############################################################################
@@ -782,6 +797,7 @@ def run_all_examples():
         # Game effects
         example_tetris,
         example_tetris_fast,
+        example_tetris_fixed,
         example_tetris_layered,
         example_pacman,
         example_ghost,
@@ -882,7 +898,7 @@ if __name__ == '__main__':
     """
     try:
         # Set display brightness
-        scrollphathd.set_brightness(0.2)
+        scrollphathd.set_brightness(0.5)
 
         # Uncomment if your display is upside down
         scrollphathd.rotate(degrees=180)

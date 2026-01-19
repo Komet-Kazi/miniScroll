@@ -89,7 +89,7 @@ runner.run(frames=150)  # Run for specific frame count
 
 - **PacMan**, **Ghost**, **PelletRow**: Animated game characters
 - **PacManScene**: Pre-composed scene combining above
-- **TetrisPiece**, **TetrisBoard**, **TetrisScene**: Tetris-style falling blocks with line clears
+- **TetrisPiece**, **TetrisBoard**, **TetrisScene**: Tetris-style falling blocks with line clears. In loop mode (default), pieces fall until the screen is full, then blink and clear to restart.
 
 ### Composite
 
