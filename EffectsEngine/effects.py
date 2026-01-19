@@ -1603,6 +1603,263 @@ class TextRainbowEffect(BaseEffect):
         return self.done
 
 
+class TextFadeEffect(BaseEffect):
+    """
+    Text that gradually fades in, holds at full brightness, then fades out.
+
+    Text brightness transitions through three phases: fade in (gradual brightness
+    increase), hold (constant at peak brightness), and fade out (gradual decrease).
+    The entire text fades uniformly as a cohesive unit, maintaining readability
+    throughout the animation.
+
+    Supports both static text (with fade animation) and scrolling text (combining
+    horizontal scroll with fade transitions). The fade is deterministic and frame-based,
+    making it suitable for recording and layering.
+
+    Args:
+        text (str): Text string to display.
+        x_start (int | None): Starting x position (None = off-screen right for scrolling).
+        y_pos (int): Vertical position of text (default: 0).
+        speed (float): Horizontal scroll speed in pixels/frame (0 = static, default: 1.0).
+        fade_in_frames (int): Number of frames for fade in phase (default: 30).
+        fade_out_frames (int): Number of frames for fade out phase (default: 30).
+        hold_frames (int): Number of frames to hold at full brightness (default: 40).
+        min_brightness (float): Starting/ending brightness 0.0-1.0 (default: 0.0).
+        max_brightness (float): Peak brightness 0.0-1.0 (default: 1.0).
+        font: scrollphathd font object (default: font5x7).
+        letter_spacing (int): Pixels between characters (default: 1).
+        loop (bool): Restart fade cycle when complete (default: False).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+
+    Example:
+        # Basic static fade (fade in, hold, fade out)
+        fade = TextFadeEffect("HELLO", x_start=0, speed=0)
+
+        # Scrolling text with fade
+        scroll_fade = TextFadeEffect("WELCOME", speed=0.5)
+
+        # Quick fade in, long hold, slow fade out
+        custom = TextFadeEffect(
+            "INFO",
+            x_start=2,
+            speed=0,
+            fade_in_frames=15,
+            hold_frames=60,
+            fade_out_frames=45
+        )
+
+        # Layered with background effect
+        from scrollphathd.fonts import font3x5
+        scene = LayeredEffect(
+            Layer(SparkleField(density=20), BlendMode.ADD),
+            Layer(TextFadeEffect("STARS", y_pos=1, font=font3x5, loop=True), BlendMode.MAX)
+        )
+
+    Behavior:
+        - All text pixels fade uniformly (entire text as one unit)
+        - Fade phases: IN → HOLD → OUT (linear interpolation)
+        - Scrolling and fade animation are independent
+        - Effect completes when both fade cycle and scroll (if applicable) finish
+        - Loop restarts both fade cycle and scroll position
+        - Compatible with all blend modes for layering
+    """
+
+    def __init__(
+        self,
+        text: str,
+        x_start: int | None = None,
+        y_pos: int = 0,
+        speed: float = 1.0,
+        fade_in_frames: int = 30,
+        fade_out_frames: int = 30,
+        hold_frames: int = 40,
+        min_brightness: float = 0.0,
+        max_brightness: float = 1.0,
+        font=None,
+        letter_spacing: int = 1,
+        loop: bool = False,
+        width=None,
+        height=None,
+    ):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+
+        self.text = text
+        self.y_pos = y_pos
+        self.speed = speed
+        self.fade_in_frames = max(1, fade_in_frames)  # Prevent division by zero
+        self.fade_out_frames = max(1, fade_out_frames)
+        self.hold_frames = hold_frames
+        self.min_brightness = min_brightness
+        self.max_brightness = max_brightness
+        self.letter_spacing = letter_spacing
+        self.loop = loop
+
+        # Default x_start to off-screen right for scrolling
+        self.x_start = x_start if x_start is not None else self.width
+
+        # Set default font if none provided
+        if font is None:
+            try:
+                from scrollphathd.fonts import font5x7
+                self.font = font5x7
+            except ImportError:
+                raise ImportError("scrollphathd.fonts not available")
+        else:
+            self.font = font
+
+        # Pre-render text to pixels (at max brightness - will be modulated)
+        self.text_pixels, self.text_width = self._render_from_font_data()
+
+        self.reset()
+
+    def _render_from_font_data(self):
+        """
+        Render text by accessing font character bitmaps.
+
+        Renders at maximum brightness - brightness will be modulated
+        per frame based on fade phase.
+
+        Returns:
+            tuple: (pixels, text_width) where pixels is list of (x, y, brightness)
+                   and text_width is the total width in pixels.
+        """
+        pixels = []
+        x_offset = 0
+
+        # Access the font data dictionary
+        font_data = self.font.data if hasattr(self.font, 'data') else self.font
+
+        for char in self.text:
+            # Get character bitmap from font
+            try:
+                char_data = font_data[ord(char)]
+            except (KeyError, IndexError):
+                # Character not in font, skip it
+                continue
+
+            # char_data is a list of rows (horizontal strips of pixels)
+            for row_idx, row in enumerate(char_data):
+                for col_idx in range(len(row)):
+                    if row[col_idx]:  # If pixel is set
+                        # Store at max brightness (will be modulated in step())
+                        pixels.append((
+                            x_offset + col_idx,
+                            row_idx,
+                            self.max_brightness
+                        ))
+
+            # Move to next character position
+            char_width = len(char_data[0]) if char_data else 0
+            x_offset += char_width + self.letter_spacing
+
+        # Total width is final offset minus trailing letter_spacing
+        text_width = x_offset - self.letter_spacing if x_offset > 0 else 0
+
+        return pixels, text_width
+
+    def _calculate_current_brightness(self):
+        """
+        Calculate brightness based on current position in fade cycle.
+
+        Uses piecewise linear interpolation across three phases:
+        1. Fade in: Linear increase from min to max
+        2. Hold: Constant at max brightness
+        3. Fade out: Linear decrease from max to min
+
+        Returns:
+            float: Current brightness value (0.0-1.0 range).
+        """
+        total_fade_frames = self.fade_in_frames + self.hold_frames + self.fade_out_frames
+
+        if self.fade_frame_count < self.fade_in_frames:
+            # Fade in phase: Linear interpolation from min to max
+            progress = self.fade_frame_count / self.fade_in_frames
+            return self.min_brightness + (self.max_brightness - self.min_brightness) * progress
+
+        elif self.fade_frame_count < self.fade_in_frames + self.hold_frames:
+            # Hold phase: Constant at max brightness
+            return self.max_brightness
+
+        elif self.fade_frame_count < total_fade_frames:
+            # Fade out phase: Linear interpolation from max to min
+            fade_out_start = self.fade_in_frames + self.hold_frames
+            progress = (self.fade_frame_count - fade_out_start) / self.fade_out_frames
+            return self.max_brightness - (self.max_brightness - self.min_brightness) * progress
+
+        else:
+            # Fade cycle complete
+            return self.min_brightness
+
+    def reset(self):
+        """Reset scroll position and fade cycle to starting point."""
+        self.scroll_offset = 0.0
+        self.fade_frame_count = 0
+        self.done = False
+
+    def step(self):
+        """
+        Advance animation and return visible pixels with fade brightness applied.
+
+        Applies uniform brightness (based on fade phase) to all text pixels,
+        then applies scroll transformation and viewport culling.
+
+        Returns:
+            list[tuple[int, int, float]]: Pixels as (x, y, brightness) tuples.
+        """
+        if self.done:
+            return []
+
+        # Calculate current brightness for entire text
+        current_brightness = self._calculate_current_brightness()
+
+        visible_pixels = []
+
+        for px, py, base_brightness in self.text_pixels:
+            # Apply horizontal scroll transformation
+            display_x = int(self.x_start + px - self.scroll_offset)
+            display_y = self.y_pos + py
+
+            # Only include pixels within viewport
+            if 0 <= display_x < self.width and 0 <= display_y < self.height:
+                # Apply fade brightness (uniform across all pixels)
+                visible_pixels.append((display_x, display_y, current_brightness))
+
+        # Update animation state
+        self.scroll_offset += self.speed
+        self.fade_frame_count += 1
+
+        # Calculate fade cycle completion
+        total_fade_frames = self.fade_in_frames + self.hold_frames + self.fade_out_frames
+        fade_complete = self.fade_frame_count >= total_fade_frames
+
+        # Calculate scroll completion (if scrolling)
+        scroll_complete = True  # Assume complete if static (speed == 0)
+        if self.speed > 0:
+            scroll_complete = self.scroll_offset > self.x_start + self.text_width
+
+        # Check overall completion
+        if fade_complete and scroll_complete:
+            if self.loop:
+                # Reset both fade and scroll for looping
+                self.fade_frame_count = 0
+                self.scroll_offset = 0.0
+            else:
+                self.done = True
+
+        return visible_pixels
+
+    def is_done(self):
+        """
+        Return True if the effect has completed.
+
+        Returns False for looping effects.
+        Returns True when both fade cycle and scroll (if applicable) complete.
+        """
+        return self.done
+
+
 ###------------------------------------------------------------------------###
 # Pac Man, Pellet, and Ghost animation and scene logic
 class PacMan(BaseEffect):

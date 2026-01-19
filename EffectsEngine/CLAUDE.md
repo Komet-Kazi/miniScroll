@@ -63,7 +63,7 @@ runner.run(frames=150)  # Run for specific frame count
 | **test_text_simple.py** | Unit tests for TextScroller | ~300 lines |
 | **text_examples.py** | TextScroller usage examples | ~250 lines |
 
-## Available Effects (26 Classes)
+## Available Effects (27 Classes)
 
 ### Core Visual Effects
 
@@ -83,6 +83,7 @@ runner.run(frames=150)  # Run for specific frame count
 - **TextRevealEffect**: Progressive pixel-by-pixel text reveal as animation passes over it
 - **TextWaveEffect**: Animated text with vertical wave oscillation
 - **TextRainbowEffect**: Brightness wave shimmer traveling through text
+- **TextFadeEffect**: Text that fades in, holds at full brightness, then fades out
 
 ### Game-Like Effects
 

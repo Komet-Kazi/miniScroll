@@ -13,7 +13,7 @@ import scrollphathd
 from effects import (
     Sparkle, SparkleField, Comet, WaveRipple, ExpandingBox,
     SpiralSweep, ScannerSweep, ZigZagSweep, PulseFade,
-    TextScroller, TextRevealEffect, TextWaveEffect, TextRainbowEffect, PacMan, Ghost, PelletRow, PacManScene,
+    TextScroller, TextRevealEffect, TextWaveEffect, TextRainbowEffect, TextFadeEffect, PacMan, Ghost, PelletRow, PacManScene,
     LayeredEffect, Layer, BlendMode, BakedAnimation
 )
 from runner import EffectRunner, AnimationRecorder, DisplayConfig
@@ -182,6 +182,74 @@ def example_pulse_fade():
 # TEXT EFFECTS
 ###############################################################################
 
+def example_text_fade_basic():
+    """Example 14: Text that fades in, holds, then fades out."""
+    print("Example 14: Text Fade - Basic")
+
+    fade = TextFadeEffect(
+        "HELLO",
+        x_start=0,
+        y_pos=1,
+        speed=0,  # Static text
+        fade_in_frames=25,
+        hold_frames=50,
+        fade_out_frames=25,
+        min_brightness=0.0,
+        max_brightness=1.0
+    )
+
+    runner = EffectRunner(fade, fps=20)
+    runner.run(frames=120)
+
+
+def example_text_fade_scrolling():
+    """Example 15: Scrolling text with fade effect."""
+    print("Example 15: Text Fade - Scrolling")
+
+    fade_scroll = TextFadeEffect(
+        "Max and KiKi",
+        speed=0.5,
+        y_pos=1,
+        fade_in_frames=30,
+        hold_frames=40,
+        fade_out_frames=30,
+        min_brightness=0.1,
+        max_brightness=1.0
+    )
+
+    runner = EffectRunner(fade_scroll, fps=20)
+    runner.run(frames=250)
+
+
+def example_text_fade_layered():
+    """Example 16: Fading text layered over sparkle field."""
+    print("Example 16: Text Fade - Layered")
+
+    from scrollphathd.fonts import font3x5
+
+    fade_text = TextFadeEffect(
+        "STARS",
+        x_start=1,
+        y_pos=1,
+        speed=0,
+        fade_in_frames=20,
+        hold_frames=60,
+        fade_out_frames=20,
+        min_brightness=0.0,
+        max_brightness=1.0,
+        font=font3x5,
+        loop=True
+    )
+
+    scene = LayeredEffect(
+        Layer(SparkleField(density=20, speed_range=(15, 30)), BlendMode.ADD),
+        Layer(fade_text, BlendMode.MAX)
+    )
+
+    runner = EffectRunner(scene, fps=20)
+    runner.run(frames=200)
+
+
 def example_text_scroll():
     """Example 14: Scrolling text message."""
     print("Example 14: Scrolling Text")
@@ -211,7 +279,7 @@ def example_text_looping():
     runner = EffectRunner(text, fps=20)
     runner.run(frames=200)
 
-
+#TODO: Adjust, Does not work well as normal comet hits the same spots each time and doesnt light the whole text
 def example_text_reveal_comet():
     """Example 17: Text revealed pixel-by-pixel by bouncing comet."""
     print("Example 17: Text Reveal - Comet")
@@ -628,6 +696,9 @@ def run_all_examples():
 
     examples = [
         # Text effects
+        example_text_fade_basic,
+        example_text_fade_scrolling,
+        example_text_fade_layered,
         example_text_rainbow,
         example_text_rainbow_static,
         example_text_rainbow_layered,
