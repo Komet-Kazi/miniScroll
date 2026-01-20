@@ -900,7 +900,7 @@ class TextScroller(BaseEffect):
         for char in self.text:
             # Get character bitmap from font (fonts are indexed by ordinal)
             try:
-                char_data = font_data[ord(char)]
+                char_data = font_data[ord(char)] # pyright: ignore[reportIndexIssue]
             except (KeyError, IndexError):
                 # Character not in font, skip it
                 continue
@@ -1289,7 +1289,7 @@ class TextWaveEffect(BaseEffect):
         for char in self.text:
             # Get character bitmap from font
             try:
-                char_data = font_data[ord(char)]
+                char_data = font_data[ord(char)] # pyright: ignore[reportIndexIssue]
             except (KeyError, IndexError):
                 # Character not in font, skip it
                 continue
@@ -1510,7 +1510,7 @@ class TextRainbowEffect(BaseEffect):
         for char in self.text:
             # Get character bitmap from font
             try:
-                char_data = font_data[ord(char)]
+                char_data = font_data[ord(char)] # pyright: ignore[reportIndexIssue]
             except (KeyError, IndexError):
                 # Character not in font, skip it
                 continue
@@ -1734,7 +1734,7 @@ class TextFadeEffect(BaseEffect):
         for char in self.text:
             # Get character bitmap from font
             try:
-                char_data = font_data[ord(char)]
+                char_data = font_data[ord(char)] # pyright: ignore[reportIndexIssue]
             except (KeyError, IndexError):
                 # Character not in font, skip it
                 continue
