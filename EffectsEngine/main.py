@@ -9,6 +9,7 @@ or combine them using LayeredEffect with blend modes.
 Run these on actual hardware with Scroll pHAT HD connected.
 """
 
+import os
 import scrollphathd
 from effects import (
     Sparkle, SparkleField, Comet, WaveRipple, ExpandingBox,
@@ -222,7 +223,7 @@ def example_text_fade_scrolling():
     runner = EffectRunner(fade_scroll, fps=20)
     runner.run(frames=250)
 
-
+# This looks amazing!
 def example_text_fade_layered():
     """Example 16: Fading text layered over sparkle field."""
     print("Example 16: Text Fade - Layered")
@@ -281,7 +282,7 @@ def example_text_looping():
     runner = EffectRunner(text, fps=20)
     runner.run(frames=200)
 
-#TODO: Adjust, Does not work well as normal comet hits the same spots each time and doesnt light the whole text
+#TODO: Adjust, Does not work wellbecause  normal comet hits the same spots each time and doesnt light the whole text
 def example_text_reveal_comet():
     """Example 17: Text revealed pixel-by-pixel by bouncing comet."""
     print("Example 17: Text Reveal - Comet")
@@ -750,6 +751,236 @@ def example_play_baked_animation():
     runner.run(frames=150)
 
 
+def bake_all_animations():
+    """
+    Bake all example effects to .anim.gz files for later playback.
+
+    Creates a 'baked_animations' directory and saves each effect as a
+    compressed animation file. Each animation is recorded with enough
+    frames for at least one full cycle plus ~1 second buffer.
+
+    This is a utility function for pre-computing animations that can
+    be played back later without recalculating effect logic.
+    """
+    from scrollphathd.fonts import font3x5
+
+    # Create output directory
+    output_dir = "baked_animations"
+    os.makedirs(output_dir, exist_ok=True)
+
+    print("=" * 70)
+    print("Baking All Animations")
+    print("=" * 70)
+
+    # Define all animations: (filename, effect, frames, fps)
+    animations = [
+        # ===== CORE VISUAL EFFECTS =====
+        ("sparkle", Sparkle(x=8, y=3, speed=20), 75, 20),
+        ("sparkle_field", SparkleField(density=30, speed_range=(10, 50)), 100, 20),
+        ("sparkle_field_dense", SparkleField(density=50, speed_range=(5, 20)), 100, 20),
+        ("comet_bounce", Comet(x=0, y=0, dx=1, dy=1, tail_length=6, bounce=True), 100, 20),
+        ("comet_diagonal", Comet(x=8, y=3, dx=0.8, dy=0.6, tail_length=10, bounce=True), 100, 20),
+        ("wave_ripple_center", WaveRipple(
+            cx=DisplayConfig.width // 2,
+            cy=DisplayConfig.height // 2,
+            speed=0.7
+        ), 80, 20),
+        ("wave_ripple_corner", WaveRipple(cx=0, cy=0, speed=0.5, max_radius=20), 100, 20),
+        ("expanding_box", ExpandingBox(
+            cx=DisplayConfig.width // 2,
+            cy=DisplayConfig.height // 2,
+            speed=0.5
+        ), 80, 20),
+        ("spiral_sweep", SpiralSweep(
+            cx=DisplayConfig.width // 2,
+            cy=DisplayConfig.height // 2,
+            speed=0.3
+        ), 150, 20),
+        ("scanner_horizontal", ScannerSweep(
+            horizontal=True, speed=1, trail_length=6, bounce=True
+        ), 80, 20),
+        ("scanner_vertical", ScannerSweep(
+            horizontal=False, speed=1, trail_length=4, bounce=True
+        ), 60, 20),
+        ("zigzag_sweep", ZigZagSweep(speed=1, trail_length=6, bounce=True), 150, 20),
+        ("pulse_fade", PulseFade(speed=0.08, repeat=True), 150, 20),
+
+        # ===== TEXT EFFECTS =====
+        ("text_fade_static", TextFadeEffect(
+            "HELLO", x_start=0, y_pos=1, speed=0,
+            fade_in_frames=25, hold_frames=50, fade_out_frames=25
+        ), 125, 20),
+        ("text_fade_scrolling", TextFadeEffect(
+            "Max and KiKi", speed=0.5, y_pos=1,
+            fade_in_frames=30, hold_frames=40, fade_out_frames=30
+        ), 275, 20),
+        ("text_scroller", TextScroller("Max and KiKi", speed=0.5), 150, 20),
+        ("text_static", TextScroller("Max", speed=0), 80, 20),
+        ("text_looping", TextScroller("*** KiKi ***", speed=0.75, loop=True), 200, 20),
+        ("text_reveal_comet", TextRevealEffect(
+            text="Max",
+            revealer=Comet(x=0, y=0, dx=1, dy=1, tail_length=6, bounce=True),
+            x_pos=2, y_pos=2, brightness=1.0, show_revealer=True
+        ), 275, 20),
+        ("text_reveal_scanner", TextRevealEffect(
+            text="KiKi",
+            revealer=ScannerSweep(horizontal=False, speed=1, trail_length=4, bounce=True),
+            x_pos=1, y_pos=1, brightness=1.0, show_revealer=True
+        ), 225, 20),
+        ("text_wave", TextWaveEffect(
+            "Max", speed=0.5, wave_speed=0.1, wave_amplitude=1.0, wave_length=12.0
+        ), 225, 20),
+        ("text_wave_static", TextWaveEffect(
+            "KiKi", x_start=0, y_pos=1, speed=0,
+            wave_speed=0.08, wave_amplitude=1.0, wave_length=14.0
+        ), 175, 20),
+        ("text_rainbow", TextRainbowEffect(
+            "KiKi", speed=0.5, wave_speed=0.15, wave_length=8.0,
+            min_brightness=0.6, max_brightness=1.0
+        ), 225, 20),
+        ("text_rainbow_static", TextRainbowEffect(
+            "Max", x_start=0, y_pos=1, speed=0,
+            wave_speed=0.2, wave_length=6.0, min_brightness=0.5, max_brightness=1.0
+        ), 175, 20),
+
+        # ===== GAME SCENES (Full scenes only) =====
+        ("pacman_scene", PacManScene(
+            pellets=PelletRow(y=3),
+            pacman=PacMan(x=0, y=3, x_speed=0.25, wrap=False),
+            ghost=Ghost(x=-7, y=2, x_speed=0.15)
+        ), 225, 20),
+        ("tetris_scene", TetrisScene(
+            base_fall_speed=0.15, speed_increment=0.01,
+            blink_frames=8, full_blink_frames=12
+        ), 500, 20),
+        ("tetris_fast", TetrisScene(
+            base_fall_speed=0.25, speed_increment=0.015,
+            blink_frames=6, full_blink_frames=10
+        ), 400, 25),
+
+        # ===== LAYERED EFFECTS =====
+        ("layered_waves", LayeredEffect(
+            Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
+            Layer(WaveRipple(3, 1, speed=0.5), BlendMode.MAX),
+            Layer(WaveRipple(12, 5, speed=0.6), BlendMode.ALPHA_SOFT)
+        ), 175, 20),
+        ("layered_comets", LayeredEffect(
+            Layer(Comet(0, 0, dx=1, dy=1, tail_length=8, bounce=True), BlendMode.MAX),
+            Layer(Comet(16, 6, dx=-1, dy=-1, tail_length=8, bounce=True), BlendMode.ADD)
+        ), 175, 20),
+        ("sparkle_comet", LayeredEffect(
+            Layer(Comet(0, 0, dx=1, dy=1, tail_length=10, bounce=True), BlendMode.OVERWRITE),
+            Layer(SparkleField(density=40, speed_range=(15, 30)), BlendMode.ADD)
+        ), 225, 20),
+        ("text_sparkle_field", LayeredEffect(
+            Layer(SparkleField(density=40, speed_range=(15, 30)), BlendMode.MAX),
+            Layer(TextScroller("Max", y_pos=1, speed=0.4, brightness=1.0), BlendMode.MAX)
+        ), 200, 20),
+        ("text_wave_bg", LayeredEffect(
+            Layer(WaveRipple(cx=8, cy=3, speed=0.5), BlendMode.MAX),
+            Layer(TextScroller("KiKi", y_pos=1, speed=0.3), BlendMode.MAX)
+        ), 175, 20),
+        ("complex_layer", LayeredEffect(
+            Layer(WaveRipple(8, 3, speed=0.7), BlendMode.OVERWRITE),
+            Layer(WaveRipple(3, 1, speed=0.5), BlendMode.MAX),
+            Layer(SparkleField(density=15, speed_range=(20, 40)), BlendMode.ALPHA_SOFT),
+            Layer(Comet(0, 0, dx=1, dy=1, tail_length=6, bounce=True), BlendMode.ALPHA_HARD),
+            Layer(Comet(16, 6, dx=-0.8, dy=-0.6, tail_length=6, bounce=True), BlendMode.ALPHA_HARD)
+        ), 225, 20),
+
+        # ===== TEXT LAYERED EFFECTS =====
+        ("text_fade_layered", LayeredEffect(
+            Layer(SparkleField(density=20, speed_range=(15, 30)), BlendMode.ADD),
+            Layer(TextFadeEffect(
+                "STARS", x_start=1, y_pos=1, speed=0, font=font3x5,
+                fade_in_frames=20, hold_frames=60, fade_out_frames=20, loop=True
+            ), BlendMode.MAX)
+        ), 200, 20),
+        ("text_wave_layered", LayeredEffect(
+            Layer(SparkleField(density=30, speed_range=(15, 30)), BlendMode.MAX),
+            Layer(TextWaveEffect(
+                "Max", y_pos=1, speed=0.4, wave_speed=0.09,
+                wave_amplitude=0.8, wave_length=12.0, font=font3x5, brightness=1.0
+            ), BlendMode.MAX)
+        ), 200, 20),
+        ("text_rainbow_layered", LayeredEffect(
+            Layer(SparkleField(density=20, speed_range=(15, 30)), BlendMode.ADD),
+            Layer(TextRainbowEffect(
+                "KiKi", y_pos=1, speed=0.4, wave_speed=0.18, wave_length=7.0,
+                min_brightness=0.5, max_brightness=1.0, font=font3x5
+            ), BlendMode.MAX)
+        ), 200, 20),
+    ]
+
+    # Bake each animation
+    total = len(animations)
+    for i, (name, effect, frames, fps) in enumerate(animations, 1):
+        filepath = os.path.join(output_dir, f"{name}.anim.gz")
+        print(f"[{i}/{total}] Baking {name} ({frames} frames @ {fps} fps)...")
+
+        recorder = AnimationRecorder(effect, fps=fps)
+        recorder.record(frames=frames)
+        recorder.save(filepath)
+
+    print("\n" + "=" * 70)
+    print(f"Baked {total} animations to '{output_dir}/'")
+    print("=" * 70)
+
+
+def play_all_baked_animations():
+    """
+    Play back all baked animations from the 'baked_animations' directory.
+
+    Iterates through all .anim.gz files in the baked_animations folder
+    and plays each one in sequence. Useful for previewing all pre-baked
+    animations on the hardware.
+    """
+    import glob
+    import gzip
+    import json
+
+    output_dir = "baked_animations"
+
+    # Find all baked animation files
+    pattern = os.path.join(output_dir, "*.anim.gz")
+    anim_files = sorted(glob.glob(pattern))
+
+    if not anim_files:
+        print(f"No baked animations found in '{output_dir}/'")
+        print("Run bake_all_animations() first to create them.")
+        return
+
+    print("=" * 70)
+    print("Playing All Baked Animations")
+    print("=" * 70)
+
+    total = len(anim_files)
+    for i, filepath in enumerate(anim_files, 1):
+        name = os.path.basename(filepath).replace(".anim.gz", "")
+        print(f"\n[{i}/{total}] Playing: {name}")
+
+        try:
+            # Read metadata from file to get fps and frame count
+            with gzip.open(filepath, "rt", encoding="utf-8") as f:
+                data = json.load(f)
+            fps = data.get("fps", 20)
+            frame_count = data.get("frame_count", len(data.get("frames", [])))
+
+            animation = BakedAnimation(filepath, loop=False)
+            runner = EffectRunner(animation, fps=fps, invert=True)
+            runner.run(frames=frame_count)
+        except Exception as e:
+            print(f"  Error playing {name}: {e}")
+            continue
+
+        scrollphathd.clear()
+        scrollphathd.show()
+
+    print("\n" + "=" * 70)
+    print(f"Finished playing {total} animations")
+    print("=" * 70)
+
+
 ###############################################################################
 # MAIN EXECUTION
 ###############################################################################
@@ -817,6 +1048,7 @@ def run_all_examples():
         # Animation recording
         example_bake_animation,
         example_play_baked_animation,
+        # bake_all_animations,  # Utility: bakes all effects to files (not a visual demo)
     ]
 
     try:
@@ -906,8 +1138,14 @@ if __name__ == '__main__':
         # Run all examples in sequence
         # run_all_examples()
 
+        # Bake all examples in sequence
+        # bake_all_animations()
+
+        # Play all Baked examples
+        play_all_baked_animations()
+
         # Or uncomment individual examples to run them:
-        example_tetris_fast()
+        # example_tetris_fast()
         # example_expanding_box()
         # example_sparkle_field()
         # example_comet()
