@@ -63,7 +63,7 @@ runner.run(frames=150)  # Run for specific frame count
 | **test_text_simple.py** | Unit tests for TextScroller | ~300 lines |
 | **text_examples.py** | TextScroller usage examples | ~250 lines |
 
-## Available Effects (30 Classes)
+## Available Effects (31 Classes)
 
 ### Core Visual Effects
 
@@ -90,6 +90,7 @@ runner.run(frames=150)  # Run for specific frame count
 - **PacMan**, **Ghost**, **PelletRow**: Animated game characters
 - **PacManScene**: Pre-composed scene combining above
 - **TetrisPiece**, **TetrisBoard**, **TetrisScene**: Tetris-style falling blocks with line clears. In loop mode (default), pieces fall until the screen is full, then blink and clear to restart.
+- **SnakeScene**: Classic Snake game with smart AI pathfinding. Snake eats food, grows longer, and avoids self-collision. Blinks and restarts on game over (loop mode).
 
 ### Composite
 

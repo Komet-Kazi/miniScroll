@@ -2759,6 +2759,280 @@ class TetrisScene(BaseEffect):
 
 
 ###------------------------------------------------------------------------###
+# Snake Effects
+###------------------------------------------------------------------------###
+
+class SnakeScene(BaseEffect):
+    """
+    Classic Snake game scene with smart AI pathfinding.
+
+    A snake moves around the display eating food pellets and growing longer.
+    The AI automatically navigates toward food while avoiding self-collision.
+    When the snake fills the screen or traps itself, it blinks and restarts.
+
+    Args:
+        start_length (int): Initial snake length (default: 3).
+        speed (float): Movement speed in pixels per frame (default: 0.25).
+        loop (bool): If True, restarts after game over (default: True).
+        blink_frames (int): Frames to blink on game over (default: 16).
+        width (int | None): Display width (None = use DisplayConfig).
+        height (int | None): Display height (None = use DisplayConfig).
+
+    Example:
+        # Basic snake scene
+        scene = SnakeScene(start_length=3, speed=0.3, loop=True)
+        runner = EffectRunner(scene, fps=20)
+        runner.run(frames=500)
+
+        # Fast snake with sparkle background
+        scene = LayeredEffect(
+            Layer(SparkleField(density=10), BlendMode.ADD),
+            Layer(SnakeScene(speed=0.5), BlendMode.MAX)
+        )
+    """
+
+    # Direction constants: (dx, dy)
+    DIRECTIONS = [(1, 0), (0, 1), (-1, 0), (0, -1)]  # RIGHT, DOWN, LEFT, UP
+
+    def __init__(self, start_length=3, speed=0.25, loop=True, blink_frames=16,
+                 width=None, height=None):
+        self.width = width if width is not None else DisplayConfig.width
+        self.height = height if height is not None else DisplayConfig.height
+        self.start_length = start_length
+        self.speed = speed
+        self.loop = loop
+        self.blink_frames = blink_frames
+        self.reset()
+
+    def reset(self):
+        """Reset the scene to initial state."""
+        # Snake starts in center-left, moving right
+        start_x = self.width // 4
+        start_y = self.height // 2
+
+        self.head_x = start_x
+        self.head_y = start_y
+        self.direction = 0  # Start moving RIGHT
+
+        # Body is a deque of (x, y) positions (head is NOT in body)
+        # Initialize body behind the head
+        self.body = collections.deque()
+        for i in range(1, self.start_length):
+            self.body.append((start_x - i, start_y))
+
+        # Pre-generate food positions for determinism
+        self.food_positions = [
+            (randint(0, self.width - 1), randint(0, self.height - 1))
+            for _ in range(100)
+        ]
+        self.food_index = 0
+
+        # Spawn first food (avoiding snake)
+        self._spawn_food()
+
+        # Movement accumulator for sub-pixel movement
+        self.move_accumulator = 0.0
+
+        # Step counter for food pulsing
+        self.step_count = 0
+
+        # Game state
+        self.game_over = False
+        self.blink_counter = 0
+        self.blink_on = True
+        self.done = False
+
+    def _get_snake_positions(self):
+        """Return set of all positions occupied by the snake."""
+        positions = {(self.head_x, self.head_y)}
+        positions.update(self.body)
+        return positions
+
+    def _spawn_food(self):
+        """Spawn food at next pre-generated position, avoiding snake."""
+        snake_positions = self._get_snake_positions()
+
+        # Try positions from pre-generated list
+        attempts = 0
+        while attempts < len(self.food_positions):
+            pos = self.food_positions[self.food_index % len(self.food_positions)]
+            self.food_index += 1
+            attempts += 1
+
+            if pos not in snake_positions:
+                self.food_x, self.food_y = pos
+                return
+
+        # Fallback: find any empty position
+        for y in range(self.height):
+            for x in range(self.width):
+                if (x, y) not in snake_positions:
+                    self.food_x, self.food_y = x, y
+                    return
+
+        # No empty position (snake fills entire screen)
+        self.food_x, self.food_y = -1, -1
+
+    def _manhattan_distance(self, x1, y1, x2, y2):
+        """Calculate Manhattan distance with wrap-around consideration."""
+        # Direct distance
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+
+        # Wrap-around distance
+        dx_wrap = self.width - dx
+        dy_wrap = self.height - dy
+
+        return min(dx, dx_wrap) + min(dy, dy_wrap)
+
+    def _choose_direction(self):
+        """
+        Choose the best direction toward food while avoiding collision.
+
+        Uses a simple greedy approach: prefer directions that reduce distance
+        to food, but avoid directions that would cause self-collision.
+        """
+        snake_positions = self._get_snake_positions()
+
+        # Remove tail from collision check (it will move)
+        if self.body:
+            tail = self.body[-1]
+            snake_positions.discard(tail)
+
+        best_direction = self.direction
+        best_distance = float('inf')
+        safe_directions = []
+
+        for dir_idx, (dx, dy) in enumerate(self.DIRECTIONS):
+            # Calculate new head position
+            new_x = (self.head_x + dx) % self.width
+            new_y = (self.head_y + dy) % self.height
+
+            # Skip if this would cause collision
+            if (new_x, new_y) in snake_positions:
+                continue
+
+            safe_directions.append(dir_idx)
+
+            # Calculate distance to food
+            distance = self._manhattan_distance(new_x, new_y, self.food_x, self.food_y)
+
+            if distance < best_distance:
+                best_distance = distance
+                best_direction = dir_idx
+
+        # If no direction reduces distance but we have safe directions, pick one
+        if best_distance == float('inf') and safe_directions:
+            # Prefer continuing in current direction if safe
+            if self.direction in safe_directions:
+                best_direction = self.direction
+            else:
+                best_direction = safe_directions[0]
+
+        return best_direction
+
+    def _move_snake(self):
+        """Move the snake one step in the current direction."""
+        # Choose new direction (smart AI)
+        self.direction = self._choose_direction()
+
+        dx, dy = self.DIRECTIONS[self.direction]
+
+        # Add current head position to body
+        self.body.appendleft((self.head_x, self.head_y))
+
+        # Move head (with wrap-around)
+        self.head_x = (self.head_x + dx) % self.width
+        self.head_y = (self.head_y + dy) % self.height
+
+        # Check for food collision
+        ate_food = (self.head_x == self.food_x and self.head_y == self.food_y)
+
+        if ate_food:
+            # Don't remove tail (snake grows)
+            self._spawn_food()
+        else:
+            # Remove tail (snake moves without growing)
+            self.body.pop()
+
+        # Check for self-collision
+        if (self.head_x, self.head_y) in set(self.body):
+            self.game_over = True
+
+        # Check if snake fills entire screen
+        total_cells = self.width * self.height
+        snake_length = 1 + len(self.body)
+        if snake_length >= total_cells:
+            self.game_over = True
+
+    def step(self):
+        """Advance one frame of the scene."""
+        if self.done:
+            return []
+
+        self.step_count += 1
+        pixels = []
+
+        # Handle game over blinking
+        if self.game_over:
+            self.blink_counter += 1
+
+            # Toggle blink state
+            if self.blink_counter % (self.blink_frames // 4) == 0:
+                self.blink_on = not self.blink_on
+
+            # Check if blink animation is complete
+            if self.blink_counter >= self.blink_frames:
+                if self.loop:
+                    self.reset()
+                    return []
+                else:
+                    self.done = True
+                    return []
+
+            # Render blinking snake (all segments at full brightness)
+            if self.blink_on:
+                pixels.append((self.head_x, self.head_y, 1.0))
+                for x, y in self.body:
+                    pixels.append((x, y, 1.0))
+
+            return pixels
+
+        # Accumulate movement
+        self.move_accumulator += self.speed
+
+        # Move snake when accumulator reaches 1.0
+        while self.move_accumulator >= 1.0:
+            self.move_accumulator -= 1.0
+            self._move_snake()
+
+            # Check if game over happened during move
+            if self.game_over:
+                break
+
+        # Render snake head (brightest)
+        pixels.append((self.head_x, self.head_y, 1.0))
+
+        # Render body with gradient (brighter near head)
+        body_len = len(self.body)
+        for i, (x, y) in enumerate(self.body):
+            # Gradient from 0.8 to 0.3
+            if body_len > 1:
+                brightness = 0.8 - (i * 0.5 / (body_len - 1))
+            else:
+                brightness = 0.8
+            pixels.append((x, y, max(0.3, brightness)))
+
+        # Render pulsing food
+        if self.food_x >= 0 and self.food_y >= 0:
+            pulse = 0.6 + 0.4 * math.sin(self.step_count * 0.2)
+            pixels.append((self.food_x, self.food_y, pulse))
+
+        return pixels
+
+    def is_done(self):
+        """Return True when scene is complete (never true in loop mode)."""
+        return self.done
 
 
 ###------------------------------------------------------------------------###

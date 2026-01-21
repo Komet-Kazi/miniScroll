@@ -16,7 +16,7 @@ from effects import (
     SpiralSweep, ScannerSweep, ZigZagSweep, PulseFade,
     TextScroller, TextRevealEffect, TextWaveEffect, TextRainbowEffect, TextFadeEffect,
     PacMan, Ghost, PelletRow, PacManScene,
-    TetrisScene,
+    TetrisScene, SnakeScene,
     LayeredEffect, Layer, BlendMode, BakedAnimation
 )
 from runner import EffectRunner, AnimationRecorder, DisplayConfig
@@ -595,6 +595,47 @@ def example_tetris_layered():
     runner.run(frames=800)
 
 
+def example_snake():
+    """Example 31: Snake game with smart AI pathfinding."""
+    print("Example 31: Snake Scene")
+
+    scene = SnakeScene(
+        start_length=3,
+        speed=0.25,
+        loop=True
+    )
+
+    runner = EffectRunner(scene, fps=20)
+    runner.run(frames=600)
+
+
+def example_snake_fast():
+    """Example 32: Fast snake game."""
+    print("Example 32: Fast Snake")
+
+    scene = SnakeScene(
+        start_length=2,
+        speed=0.4,
+        loop=True
+    )
+
+    runner = EffectRunner(scene, fps=25)
+    runner.run(frames=500)
+
+
+def example_snake_layered():
+    """Example 33: Snake with sparkle background."""
+    print("Example 33: Snake + Sparkles")
+
+    scene = LayeredEffect(
+        Layer(SparkleField(density=10, speed_range=(20, 40)), BlendMode.ADD),
+        Layer(SnakeScene(start_length=3, speed=0.3, loop=True), BlendMode.MAX)
+    )
+
+    runner = EffectRunner(scene, fps=20)
+    runner.run(frames=600)
+
+
 ###############################################################################
 # LAYERED EFFECTS
 ###############################################################################
@@ -857,6 +898,12 @@ def bake_all_animations():
             base_fall_speed=0.25, speed_increment=0.015,
             blink_frames=6, full_blink_frames=10
         ), 400, 25),
+        ("snake_scene", SnakeScene(
+            start_length=3, speed=0.25, loop=True
+        ), 500, 20),
+        ("snake_fast", SnakeScene(
+            start_length=2, speed=0.4, loop=True
+        ), 400, 25),
 
         # ===== LAYERED EFFECTS =====
         ("layered_waves", LayeredEffect(
@@ -1026,6 +1073,9 @@ def run_all_examples():
 
 
         # Game effects
+        example_snake,
+        example_snake_fast,
+        example_snake_layered,
         example_tetris,
         example_tetris_fast,
         example_tetris_fixed,
@@ -1142,9 +1192,12 @@ if __name__ == '__main__':
         # bake_all_animations()
 
         # Play all Baked examples
-        play_all_baked_animations()
+        # play_all_baked_animations()
 
         # Or uncomment individual examples to run them:
+        example_snake()
+        example_snake_fast()
+        example_snake_layered()
         # example_tetris_fast()
         # example_expanding_box()
         # example_sparkle_field()
